@@ -13,10 +13,15 @@
     "build:browser:watch": "npm run build:browser -- --watch",
     "build:types": "npx tsc",
     "_build": "npm run build:lib && npm run build:types && npm run build:browser",
-    "build": "npm run clean && npm run _build"
+    "build": "npm run clean && npm run _build",
+    "lint": "npx eslint ./src/*",
+    "lint:fix": "npm run lint -- --fix"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "esbuild": "^0.25.4",
-    "typescript": "^6.0.3"
+    "eslint": "^10.2.1",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.59.1"
   }
 }
