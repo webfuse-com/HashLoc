@@ -15,12 +15,16 @@
     "_build": "npm run build:lib && npm run build:types && npm run build:browser",
     "build": "npm run clean && npm run _build",
     "lint": "npx eslint ./src/*",
-    "lint:fix": "npm run lint -- --fix"
+    "lint:fix": "npm run lint -- --fix",
+    "test:unit": "node --test \"test/unit/*.test.js\"",
+    "test:end-to-end": "node --test \"test/end-to-end/*.test.js\"",
+    "test": "npm run test:unit && npm run test:end-to-end"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "esbuild": "^0.25.4",
     "eslint": "^10.2.1",
+    "husky": "^9.1.7",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.59.1"
   }
