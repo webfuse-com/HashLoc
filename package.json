@@ -1,3 +1,22 @@
 {
-  "name": "hashloc"
+  "name": "hashloc",
+  "version": "0.1.0",
+  "author": "Thassilo M. Schiepanski",
+  "type": "module",
+  "main": "./dist.lib/api.js",
+  "types": "./dist.lib/types",
+  "scripts": {
+    "clean": "rm -rf ./dist.lib/ && rm -rf ./dist.browser/",
+    "build:lib": "npx esbuild \"./src/**/*.ts\" --outdir=./dist.lib/ --outbase=./src --platform=node --format=esm --target=es2022 --packages=external",
+    "build:lib:watch": "npm run build:lib -- --watch",
+    "build:browser": "npx esbuild ./src/api.browser.ts --outfile=./dist.browser/HashLoc.js --bundle",
+    "build:browser:watch": "npm run build:browser -- --watch",
+    "build:types": "npx tsc",
+    "_build": "npm run build:lib && npm run build:types && npm run build:browser",
+    "build": "npm run clean && npm run _build"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.4",
+    "typescript": "^6.0.3"
+  }
 }
