@@ -19,7 +19,18 @@
     "lint:fix": "npm run lint -- --fix",
     "test:unit": "node --test \"test/unit/*.test.js\"",
     "test:end-to-end": "node --test \"test/end-to-end/*.test.js\"",
-    "test": "npm run test:unit && npm run test:end-to-end"
+    "test": "npm run test:unit && npm run test:end-to-end",
+    "test:eval": "cd eval && python -m pytest -q tests",
+    "eval": "PYTHONPATH=eval python -m eval",
+    "eval:accuracy": "npm run eval -- --modes 1,firstlast --name accuracy",
+    "eval:decomposition": "npm run eval -- --methods similo_pp,similo --modes 1,firstlast --weights default,similopp,fitted --uncompressed --name decomposition",
+    "eval:drift": "npm run eval -- --methods similo_pp,similo --modes 1,3,6,9,12,firstlast --name drift",
+    "eval:crossval": "npm run eval -- --methods similo_pp,similo --crossval --name crossval",
+    "eval:sketches": "npm run eval -- --methods none --modes 1,firstlast --sketches minhash:4,minhash:2,minhash:1,simhash:1 --name sketches",
+    "eval:ablation": "npm run eval -- --methods none --profiles L --ablation L --modes 1,firstlast --name ablation",
+    "eval:buckets": "npm run eval -- --methods none --modes 1,firstlast --lookup buckets:1,buckets:2,buckets:3 --name buckets",
+    "eval:all": "npm run eval:accuracy && npm run eval:decomposition && npm run eval:drift && npm run eval:crossval && npm run eval:sketches && npm run eval:ablation",
+    "eval:_summarize": "PYTHONPATH=eval python -m _summarize --date"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
