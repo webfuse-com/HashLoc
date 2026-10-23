@@ -6,6 +6,7 @@
   "main": "./dist.lib/api.js",
   "types": "./dist.lib/types",
   "scripts": {
+    "prepare": "husky",
     "clean": "rm -rf ./dist.lib/ && rm -rf ./dist.browser/",
     "build:lib": "npx esbuild \"./src/**/*.ts\" --outdir=./dist.lib/ --outbase=./src --platform=node --format=esm --target=es2022 --packages=external",
     "build:lib:watch": "npm run build:lib -- --watch",
@@ -22,9 +23,11 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@types/jsdom": "^28.0.1",
     "esbuild": "^0.25.4",
     "eslint": "^10.2.1",
     "husky": "^9.1.7",
+    "jsdom": "^30.1.2",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.59.1"
   }
