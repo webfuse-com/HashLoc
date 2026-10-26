@@ -38,7 +38,7 @@ export interface Metrics {
 }
 export interface EvaluateOptions {
     tau?: number;
-    topN?: number;
+    topK?: number;
 }
 export interface PrecisionCoveragePoint {
     confidence: number;

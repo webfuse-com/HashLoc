@@ -151,7 +151,7 @@ function locateCompressed(page, registered, target, keep, lookup) {
     const code = encodeFeatures(target.features, registered.profile);
     const result = resolveIn(code, page, {
         registry: registered.registry,
-        topN: page.size,
+        topK: page.size,
         ...lookup
     });
     const kept = result.candidates.slice(0, keep);

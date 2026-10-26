@@ -56,7 +56,7 @@ export interface Metrics {
 
 export interface EvaluateOptions {
 	tau?: number;
-	topN?: number;
+	topK?: number;
 }
 
 export interface PrecisionCoveragePoint {
@@ -344,7 +344,7 @@ export function evaluate(data: Sample[] | Prepared, profile: Profile, options: E
 	const prepared: Prepared = asPrepared(data, profile);
 	const weights: number[] = weightsOf(profile);
 	const tau: number = options.tau ?? profile.tau;
-	const topN: number = options.topN ?? 5;
+	const topK: number = options.topK ?? 5;
 	let present: number = 0;
 	let correct: number = 0;
 	let accepted: number = 0;
@@ -378,7 +378,7 @@ export function evaluate(data: Sample[] | Prepared, profile: Profile, options: E
 			const answerScore: number = ranked.scores[row.answer];
 			const better: number = ranked.scores.filter((score: number) => score > answerScore).length;
 
-			if(better < topN) {
+			if(better < topK) {
 				escalatedHit++;
 			}
 		}

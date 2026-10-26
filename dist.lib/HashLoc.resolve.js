@@ -62,9 +62,9 @@ class PageIndex {
 }
 function decide(decoded, page, scores, best, second, options) {
   const profile = decoded.profile;
-  const topN = options.topN ?? 5;
+  const topK = options.topK ?? 5;
   const scored = scores.filter((score) => score >= 0).length;
-  const ranked = scores.map((score, index) => [score, index]).filter(([score]) => score >= 0).sort((first, second2) => second2[0] - first[0] || first[1] - second2[1]).slice(0, topN);
+  const ranked = scores.map((score, index) => [score, index]).filter(([score]) => score >= 0).sort((first, second2) => second2[0] - first[0] || first[1] - second2[1]).slice(0, topK);
   const candidates = ranked.map(([score, index]) => ({
     index,
     score,
@@ -72,7 +72,7 @@ function decide(decoded, page, scores, best, second, options) {
   }));
   if (best < 0) {
     return {
-      status: "not_found",
+      status: "unconfident",
       element: null,
       index: -1,
       confidence: 0,
@@ -91,13 +91,13 @@ function decide(decoded, page, scores, best, second, options) {
   const floor = options.floor ?? profile.floor;
   let status = "ambiguous";
   if (topScore < floor) {
-    status = "not_found";
+    status = "unconfident";
   } else if (confidence >= tau) {
-    status = "accepted";
+    status = "confident";
   }
   return {
     status,
-    element: status === "accepted" ? page.elements[best] : null,
+    element: status === "confident" ? page.elements[best] : null,
     index: best,
     confidence,
     score: topScore,
@@ -171,7 +171,7 @@ function resolveAllIn(codes, page, options = {}) {
       (decoded, index) => decide(decoded, page, scores[index], -1, -1, options)
     );
   }
-  const shortlistSize = Math.max(options.shortlist ?? 10, options.topN ?? 5);
+  const shortlistSize = Math.max(options.shortlist ?? 10, options.topK ?? 5);
   const columns = [];
   for (const codeScores of scores) {
     codeScores.map((score, index) => [score, index]).sort((first, second) => second[0] - first[0]).slice(0, shortlistSize).forEach(([, index]) => {

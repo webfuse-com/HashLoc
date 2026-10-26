@@ -151,7 +151,7 @@ export interface Profile {
 	calibrator: Calibrator;
 	/** Default confidence threshold for auto-accept. */
 	tau: number;
-	/** Below this raw score the result is "not_found" instead of "ambiguous". */
+	/** Below this raw score the result is "unconfident" instead of "ambiguous". */
 	floor: number;
 }
 

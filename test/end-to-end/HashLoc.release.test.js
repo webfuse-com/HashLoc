@@ -49,7 +49,7 @@ test("Relocate on the same page (distinct elements auto-accepted)", () => {
 
             assert.equal(result.candidates[0].element, onVersion1(selector), `Invalid top-1 (${profile.name}, ${selector})`);
             !LOOKALIKES.includes(selector)
-                && assert.deepEqual(result.status, "accepted", `Invalid status (${profile.name}, ${selector})`);
+                && assert.deepEqual(result.status, "confident", `Invalid status (${profile.name}, ${selector})`);
         }
     }
 });
@@ -102,7 +102,7 @@ test("Do not auto-accept a removed element", () => {
         page: INDEX_2
     });
 
-    assert.notDeepEqual(result.status, "accepted", "Invalid status (removed element accepted)");
+    assert.notDeepEqual(result.status, "confident", "Invalid status (removed element accepted)");
     assert.ok(result.candidates.length > 0, `Missing shortlist (${result.candidates.length} > ${0})`);
 });
 

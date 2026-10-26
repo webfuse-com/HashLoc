@@ -1,12 +1,12 @@
-import { type ElementFeatures, type Profile, type SegmentSpec, type SegmentValues } from "./types.js";
-import { DomScan, type DomOptions } from "./util.dom.js";
-import { decodeCode, encodeFeatures, segmentValues, type DecodedCode } from "./HashLoc.js";
+import type { ElementFeatures, Profile, SegmentSpec, SegmentValues } from "./types.js";
+import { type DomOptions, DomScan } from "./util.dom.js";
+import { type DecodedCode, decodeCode, encodeFeatures, segmentValues } from "./HashLoc.js";
 import { hungarian } from "./Hungarian.js";
 import { defaultRegistry, ProfileRegistry } from "./ProfileRegistry.js";
 import { calibrate, codeCoverage, scoreValues } from "./HashLoc.score.js";
 
 
-export type ResolveStatus = "accepted" | "ambiguous" | "not_found";
+export type ResolveStatus = "confident" | "ambiguous" | "unconfident";
 
 export interface RankedCandidate {
 	index: number;
@@ -37,7 +37,7 @@ export interface ResolveOptions {
 	/** Raw-score floor below which the result is not_found (default: profile.floor). */
 	floor?: number;
 	/** Candidates returned for review (default 5). */
-	topN?: number;
+	topK?: number;
 	registry?: ProfileRegistry;
 	/** "scan" scores every element (default); "buckets" scores only elements that share a bucket with the code. */
 	lookup?: "scan" | "buckets";
@@ -156,13 +156,13 @@ function decide(
 	options: ResolveOptions
 ): ResolveResult {
 	const profile: Profile = decoded.profile;
-	const topN: number = options.topN ?? 5;
+	const topK: number = options.topK ?? 5;
 	const scored: number = scores.filter((score: number) => score >= 0).length;
 	const ranked: ScoredIndex[] = scores
 		.map((score: number, index: number): ScoredIndex => [ score, index ])
 		.filter(([ score ]: ScoredIndex) => score >= 0)
 		.sort((first: ScoredIndex, second: ScoredIndex) => second[0] - first[0] || first[1] - second[1])
-		.slice(0, topN);
+		.slice(0, topK);
 	const candidates: RankedCandidate[] = ranked.map(([ score, index ]: ScoredIndex) => ({
 		index: index,
 		score: score,
@@ -171,7 +171,7 @@ function decide(
 
 	if(best < 0) {
 		return {
-			status: "not_found",
+			status: "unconfident",
 			element: null,
 			index: -1,
 			confidence: 0,
@@ -192,14 +192,14 @@ function decide(
 	let status: ResolveStatus = "ambiguous";
 
 	if(topScore < floor) {
-		status = "not_found";
+		status = "unconfident";
 	} else if(confidence >= tau) {
-		status = "accepted";
+		status = "confident";
 	}
 
 	return {
 		status: status,
-		element: status === "accepted" ? page.elements[best] : null,
+		element: status === "confident" ? page.elements[best] : null,
 		index: best,
 		confidence: confidence,
 		score: topScore,
@@ -306,7 +306,7 @@ export function resolveAllIn(codes: string[], page: PageIndex, options: ResolveA
 	}
 
 	// Restrict the assignment to each code's shortlist to keep the matrix small.
-	const shortlistSize: number = Math.max(options.shortlist ?? 10, options.topN ?? 5);
+	const shortlistSize: number = Math.max(options.shortlist ?? 10, options.topK ?? 5);
 	const columns: number[] = [];
 
 	for(const codeScores of scores) {

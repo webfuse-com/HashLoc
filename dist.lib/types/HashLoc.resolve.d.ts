@@ -1,7 +1,7 @@
-import { type ElementFeatures, type Profile, type SegmentValues } from "./types.js";
-import { DomScan, type DomOptions } from "./util.dom.js";
+import type { ElementFeatures, Profile, SegmentValues } from "./types.js";
+import { type DomOptions, DomScan } from "./util.dom.js";
 import { ProfileRegistry } from "./ProfileRegistry.js";
-export type ResolveStatus = "accepted" | "ambiguous" | "not_found";
+export type ResolveStatus = "confident" | "ambiguous" | "unconfident";
 export interface RankedCandidate {
     index: number;
     element: Element | null;
@@ -29,7 +29,7 @@ export interface ResolveOptions {
     /** Raw-score floor below which the result is not_found (default: profile.floor). */
     floor?: number;
     /** Candidates returned for review (default 5). */
-    topN?: number;
+    topK?: number;
     registry?: ProfileRegistry;
     /** "scan" scores every element (default); "buckets" scores only elements that share a bucket with the code. */
     lookup?: "scan" | "buckets";

@@ -1247,9 +1247,9 @@
   };
   function decide(decoded, page, scores, best, second, options) {
     const profile = decoded.profile;
-    const topN = options.topN ?? 5;
+    const topK = options.topK ?? 5;
     const scored = scores.filter((score) => score >= 0).length;
-    const ranked = scores.map((score, index) => [score, index]).filter(([score]) => score >= 0).sort((first, second2) => second2[0] - first[0] || first[1] - second2[1]).slice(0, topN);
+    const ranked = scores.map((score, index) => [score, index]).filter(([score]) => score >= 0).sort((first, second2) => second2[0] - first[0] || first[1] - second2[1]).slice(0, topK);
     const candidates = ranked.map(([score, index]) => ({
       index,
       score,
@@ -1257,7 +1257,7 @@
     }));
     if (best < 0) {
       return {
-        status: "not_found",
+        status: "unconfident",
         element: null,
         index: -1,
         confidence: 0,
@@ -1276,13 +1276,13 @@
     const floor = options.floor ?? profile.floor;
     let status = "ambiguous";
     if (topScore < floor) {
-      status = "not_found";
+      status = "unconfident";
     } else if (confidence >= tau) {
-      status = "accepted";
+      status = "confident";
     }
     return {
       status,
-      element: status === "accepted" ? page.elements[best] : null,
+      element: status === "confident" ? page.elements[best] : null,
       index: best,
       confidence,
       score: topScore,
@@ -1356,7 +1356,7 @@
         (decoded, index) => decide(decoded, page, scores[index], -1, -1, options)
       );
     }
-    const shortlistSize = Math.max(options.shortlist ?? 10, options.topN ?? 5);
+    const shortlistSize = Math.max(options.shortlist ?? 10, options.topK ?? 5);
     const columns = [];
     for (const codeScores of scores) {
       codeScores.map((score, index) => [score, index]).sort((first, second) => second[0] - first[0]).slice(0, shortlistSize).forEach(([, index]) => {
@@ -1668,7 +1668,7 @@
     const prepared = asPrepared(data, profile);
     const weights = weightsOf(profile);
     const tau = options.tau ?? profile.tau;
-    const topN = options.topN ?? 5;
+    const topK = options.topK ?? 5;
     let present = 0;
     let correct = 0;
     let accepted = 0;
@@ -1695,7 +1695,7 @@
         escalated++;
         const answerScore = ranked.scores[row.answer];
         const better = ranked.scores.filter((score) => score > answerScore).length;
-        if (better < topN) {
+        if (better < topK) {
           escalatedHit++;
         }
       }

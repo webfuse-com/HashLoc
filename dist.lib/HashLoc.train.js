@@ -169,7 +169,7 @@ function evaluate(data, profile, options = {}) {
   const prepared = asPrepared(data, profile);
   const weights = weightsOf(profile);
   const tau = options.tau ?? profile.tau;
-  const topN = options.topN ?? 5;
+  const topK = options.topK ?? 5;
   let present = 0;
   let correct = 0;
   let accepted = 0;
@@ -196,7 +196,7 @@ function evaluate(data, profile, options = {}) {
       escalated++;
       const answerScore = ranked.scores[row.answer];
       const better = ranked.scores.filter((score) => score > answerScore).length;
-      if (better < topN) {
+      if (better < topK) {
         escalatedHit++;
       }
     }
