@@ -35,7 +35,7 @@
     compareProfiles: () => compareProfiles,
     decodeCode: () => decodeCode,
     defaultRegistry: () => defaultRegistry,
-    encodeElement: () => encodeElement,
+    encode: () => encode,
     encodeFeatures: () => encodeFeatures,
     evaluate: () => evaluate,
     exactScore: () => exactScore,
@@ -58,9 +58,9 @@
     prepare: () => prepare,
     profileBits: () => profileBits,
     registerSketch: () => registerSketch,
+    resolve: () => resolve,
     resolveAll: () => resolveAll,
     resolveAllIn: () => resolveAllIn,
-    resolveCode: () => resolveCode,
     resolveIn: () => resolveIn,
     scoreValues: () => scoreValues,
     segmentValues: () => segmentValues,
@@ -1379,12 +1379,12 @@
       return decide(decoded, page, scores[codeIndex], best, alternative, options);
     });
   }
-  function encodeElement(element, options = {}) {
+  function encode(element, options = {}) {
     const registry = options.registry ?? defaultRegistry;
     const page = options.page ?? PageIndex.fromDocument(element.ownerDocument, options);
     return encodeFeatures(page.featuresOf(element), pickProfile(options.profile, registry));
   }
-  function resolveCode(code, options = {}) {
+  function resolve(code, options = {}) {
     const page = options.page ?? PageIndex.fromDocument(options.document ?? document, options);
     return resolveIn(code, page, options);
   }

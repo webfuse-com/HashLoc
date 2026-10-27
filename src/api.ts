@@ -4,7 +4,7 @@
 
 
 export { CodeError, decodeCode, encodeFeatures, numericFraction, segmentValues, valuesToCode } from "./HashLoc.js";
-export { encodeElement, PageIndex, resolveAll, resolveAllIn, resolveCode, resolveIn } from "./HashLoc.resolve.js";
+export { PageIndex, encode, resolve, resolveIn, resolveAll, resolveAllIn } from "./HashLoc.resolve.js";
 export { calibrate, codeCoverage, scoreValues, similarityVector } from "./HashLoc.score.js";
 export { exactScore, exactSimilarity, exactSimilarityVector, exactValues, pairTerms, topOneErrorBound } from "./HashLoc.exact.js";
 export {

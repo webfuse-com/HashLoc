@@ -6,32 +6,31 @@
 
 ### Example
 
-<p align="center">UI v1</p>
+<p align="center">↓ UI v1 ↓</p>
 
 ``` html
-<input id="email" type="email" placeholder="you@example.com">
+<input id="mail" type="email" placeholder="hci@example.com">
 ```
 
-<p align="center">↓ HashLoc <sub>(profile M)</sub> ↓</p>
+<p align="center"><code>HashLoc</code></p>
 
 ``` console
-AHVCYW0008RPTWTETQJPP5Q00000057JP
+C600003TG00001ASXV99MMAE26NAWK800002000EVT8Q
 ```
 
 <p align="center">↓ UI v2 ↓</p>
 
 ``` html
-<input id="nl-email" type="email" placeholder="you@example.com">
+<input id="e-mail" placeholder="hci@example.com">
 ```
 
-<p align="center"><code>resolveCode()</code></p>
+<p align="center">Find by <code>HashLoc</code></p>
 
 ``` ts
 {
   status: "confident",
-  confidence: 0.998,
-  element: HTMLInputElement,
-  candidates: []
+  confidence: 0.984,
+  element: HTMLInputElement
 }
 ```
 
@@ -62,28 +61,27 @@ import * as HashLoc from "@webfuse-com/hashloc";
 ### Usage
 
 ``` ts
-HashLoc.encodeElement(
+HashLoc.encode(
   element: Element,
-  options?: EncodeOptions     // profile: "S" | "M" | "L" (19 | 33 | 44 characters), page, DOM options
+  options?: EncodeOptions
 ): string
 
-HashLoc.resolveCode(
-  code: string,
-  options?: ResolveOptions    // tau, floor, topK, registry, document, page, DOM options
+HashLoc.resolve(
+  code: string | string[],
+  options?: ResolveOptions
 ): {
   status: "confident" | "ambiguous" | "unconfident";
   element: Element | null;
   confidence: number;
   score: number;
   margin: number;
-  candidates: { index: number; element: Element | null; score: number; }[];
+  candidates: {
+    index: number;
+    element: Element | null;
+    score: number;
+  }[];
   profile: string;
 }
-
-HashLoc.resolveAll(
-  codes: string[],
-  options?: ResolveAllOptions // one-to-one assignment: no two codes claim the same element
-): ResolveResult[]
 ```
 
 > Read the full [API Documentation](./DOCS.md).
@@ -143,7 +141,7 @@ npm run eval:all
 npm run eval:<study>
 ```
 
-> `<study>` ∈ { `accuracy`, `decomposition`, `drift`, `crossval`, `sketches`, `ablation` }
+> `<study>` ∈ { `accuracy`, `accuracy:no-spatial`, `decomposition`, `drift`, `crossval`, `sketches`, `ablation` }
 
 ``` console
 npm run eval -- --verbose --split 2 --modes 1,firstlast --profiles M

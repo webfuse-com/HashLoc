@@ -23,6 +23,7 @@
     "test:eval": "cd eval && python -m pytest -q tests",
     "eval": "PYTHONPATH=eval python -m eval",
     "eval:accuracy": "npm run eval -- --modes 1,firstlast --name accuracy",
+    "eval:accuracy:no-spatial": "npm run eval -- --methods similo,similo_pp,similo_pp_min,tag_text,idxpath,xpath,id --modes 1,firstlast --no-spatial --name nospatial",
     "eval:decomposition": "npm run eval -- --methods similo_pp,similo --modes 1,firstlast --weights default,similopp,fitted --uncompressed --name decomposition",
     "eval:drift": "npm run eval -- --methods similo_pp,similo --modes 1,3,6,9,12,firstlast --name drift",
     "eval:crossval": "npm run eval -- --methods similo_pp,similo --crossval --name crossval",

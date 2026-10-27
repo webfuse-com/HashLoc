@@ -1,5 +1,5 @@
 import { CodeError, decodeCode, encodeFeatures, numericFraction, segmentValues, valuesToCode } from "./HashLoc.js";
-import { encodeElement, PageIndex, resolveAll, resolveAllIn, resolveCode, resolveIn } from "./HashLoc.resolve.js";
+import { PageIndex, encode, resolve, resolveIn, resolveAll, resolveAllIn } from "./HashLoc.resolve.js";
 import { calibrate, codeCoverage, scoreValues, similarityVector } from "./HashLoc.score.js";
 import { exactScore, exactSimilarity, exactSimilarityVector, exactValues, pairTerms, topOneErrorBound } from "./HashLoc.exact.js";
 import {
@@ -57,7 +57,7 @@ export {
   compareProfiles,
   decodeCode,
   defaultRegistry,
-  encodeElement,
+  encode,
   encodeFeatures,
   evaluate,
   exactScore,
@@ -80,9 +80,9 @@ export {
   prepare,
   profileBits,
   registerSketch,
+  resolve,
   resolveAll,
   resolveAllIn,
-  resolveCode,
   resolveIn,
   scoreValues,
   segmentValues,

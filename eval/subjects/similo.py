@@ -124,6 +124,20 @@ BASELINES = {
 }
 
 
+# Spatial properties: derived from the page layout, so they change with the viewport.
+SPATIAL_PROPERTIES = { "location", "dimension", "area", "shape", "neighbourText" }
+
+
+def without_spatial(spec):
+    """The spec with all spatial properties ignored, or None for methods built on visual overlap
+    (VON Similo and HybridSimilo group elements by their boxes, so they cannot run without them)."""
+    if isinstance(spec, (VonSpec, CombinedSpec)):
+        return None
+    if isinstance(spec, SimiloSpec):
+        return SimiloSpec(spec.name, tuple(c for c in spec.comps if c[0] not in SPATIAL_PROPERTIES))
+    return spec
+
+
 # --- Scala sorting semantics --------------------------------------------------------------------
 
 

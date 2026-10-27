@@ -194,12 +194,12 @@ function resolveAllIn(codes, page, options = {}) {
     return decide(decoded, page, scores[codeIndex], best, alternative, options);
   });
 }
-function encodeElement(element, options = {}) {
+function encode(element, options = {}) {
   const registry = options.registry ?? defaultRegistry;
   const page = options.page ?? PageIndex.fromDocument(element.ownerDocument, options);
   return encodeFeatures(page.featuresOf(element), pickProfile(options.profile, registry));
 }
-function resolveCode(code, options = {}) {
+function resolve(code, options = {}) {
   const page = options.page ?? PageIndex.fromDocument(options.document ?? document, options);
   return resolveIn(code, page, options);
 }
@@ -209,9 +209,9 @@ function resolveAll(codes, options = {}) {
 }
 export {
   PageIndex,
-  encodeElement,
+  encode,
+  resolve,
   resolveAll,
   resolveAllIn,
-  resolveCode,
   resolveIn
 };

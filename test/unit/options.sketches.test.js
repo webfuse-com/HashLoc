@@ -4,13 +4,13 @@ import { test } from "node:test";
 import {
     codeLength,
     decodeCode,
-    encodeElement,
+    encode,
     getSketch,
     PageIndex,
     PROFILE_M,
     ProfileRegistry,
     registerSketch,
-    resolveCode,
+    resolve,
     SIMHASH_SKETCH,
     sketchNames,
     withSketch
@@ -75,7 +75,7 @@ test("Keep code length and decoding across sketch variants", () => {
 
     for(const [ algorithm, bits ] of VARIANTS) {
         const variant = withSketch(PROFILE_M, algorithm, bits, 9);
-        const code = encodeElement(onVersion1("#signup"), {
+        const code = encode(onVersion1("#signup"), {
             page: INDEX_1,
             profile: variant
         });
@@ -88,11 +88,11 @@ test("Plug in a custom sketch", () => {
     registerSketch(PREFIX_SKETCH);
 
     const custom = withSketch(PROFILE_M, "prefix", 5, 10);
-    const code = encodeElement(onVersion1("#email"), {
+    const code = encode(onVersion1("#email"), {
         page: INDEX_1,
         profile: custom
     });
-    const result = resolveCode(code, {
+    const result = resolve(code, {
         page: INDEX_1,
         registry: new ProfileRegistry([ custom ]),
         tau: 0

@@ -6,7 +6,7 @@ import {
     CodeError,
     codeLength,
     decodeCode,
-    encodeElement,
+    encode,
     PageIndex,
     PROFILE_L,
     PROFILE_M,
@@ -24,11 +24,11 @@ const onVersion1 = selector => VERSION_1.document.querySelector(selector);
 
 test("Encode deterministically with the documented lengths", () => {
     for(const profile of PROFILES) {
-        const fromIndex = encodeElement(onVersion1("#signup"), {
+        const fromIndex = encode(onVersion1("#signup"), {
             page: INDEX_1,
             profile
         });
-        const fromFreshScan = encodeElement(onVersion1("#signup"), {
+        const fromFreshScan = encode(onVersion1("#signup"), {
             ...VERSION_1.options,
             profile
         });
@@ -42,7 +42,7 @@ test("Encode deterministically with the documented lengths", () => {
 });
 
 test("Detect typos by check character, tolerate case and hyphens", () => {
-    const code = encodeElement(onVersion1("#q"), {
+    const code = encode(onVersion1("#q"), {
         page: INDEX_1
     });
     const pretty = code.toLowerCase().replace(/(.{5})/g, "$1-");

@@ -66,6 +66,6 @@ export declare class PageIndex {
 }
 export declare function resolveIn(code: string, page: PageIndex, options?: ResolveOptions): ResolveResult;
 export declare function resolveAllIn(codes: string[], page: PageIndex, options?: ResolveAllOptions): ResolveResult[];
-export declare function encodeElement(element: Element, options?: EncodeOptions): string;
-export declare function resolveCode(code: string, options?: DocumentResolveOptions): ResolveResult;
+export declare function encode(element: Element, options?: EncodeOptions): string;
+export declare function resolve(code: string, options?: DocumentResolveOptions): ResolveResult;
 export declare function resolveAll(codes: string[], options?: DocumentResolveOptions): ResolveResult[];

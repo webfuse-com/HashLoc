@@ -20,7 +20,7 @@ from features import features_of
 from metrics import make_row
 from sizes import SelectorIndex, record_size, selector_size
 from subjects import HashLoc
-from subjects.similo import BASELINES, PairContext, overlap_lists, rank
+from subjects.similo import BASELINES, PairContext, overlap_lists, rank, without_spatial
 from subjects.similo_compare import Page
 
 
@@ -84,6 +84,9 @@ def _run_site_pairs(site: Site, modes: list, methods: list[str], bridge, profile
     def page_feats(d):
         if d not in feats:
             feats[d] = [ features_of(e) for e in page(d).elements ]
+            if spec.get("no_spatial"):
+                # Spatial properties ignored: no geometry, no neighbour text (empty segments are skipped).
+                feats[d] = [ {**f, "geom": None, "neighborText": ""} for f in feats[d] ]
         return feats[d]
 
     def bridge_page(d) -> str:
@@ -110,7 +113,9 @@ def _run_site_pairs(site: Site, modes: list, methods: list[str], bridge, profile
             ctx = PairContext(old, new)
 
             for m in methods:
-                spec_m = BASELINES[m]
+                spec_m = without_spatial(BASELINES[m]) if spec.get("no_spatial") else BASELINES[m]
+                if spec_m is None:
+                    continue
                 for p, r in zip(pairs, rank(ctx, spec_m, idx)):
                     row = make_row(spec_m.name, p, r.order, r.scores, r.normalizer, new_els, ov_new[p.target.index])
                     row.stored_bytes, row.stored_deflate = record_size(m, p.old)
@@ -244,6 +249,7 @@ def _run_evaluation() -> None:
         "uncompressed": parse_flag("--uncompressed"),
         "keep": keep,
         "band_sizes": [ int(x.split(":")[1]) for x in _list_option("--lookup") if x.startswith("buckets:") ],
+        "no_spatial": parse_flag("--no-spatial"),
     }
 
     if names or ablation:

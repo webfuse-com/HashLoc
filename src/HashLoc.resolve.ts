@@ -343,7 +343,7 @@ export function resolveAllIn(codes: string[], page: PageIndex, options: ResolveA
 }
 
 // Encode a live DOM element into a short code.
-export function encodeElement(element: Element, options: EncodeOptions = {}): string {
+export function encode(element: Element, options: EncodeOptions = {}): string {
 	const registry: ProfileRegistry = options.registry ?? defaultRegistry;
 	const page: PageIndex = options.page ?? PageIndex.fromDocument(element.ownerDocument, options);
 
@@ -351,7 +351,7 @@ export function encodeElement(element: Element, options: EncodeOptions = {}): st
 }
 
 // Resolve a code against a live document (default: global `document`).
-export function resolveCode(code: string, options: DocumentResolveOptions = {}): ResolveResult {
+export function resolve(code: string, options: DocumentResolveOptions = {}): ResolveResult {
 	const page: PageIndex = options.page ?? PageIndex.fromDocument(options.document ?? document, options);
 
 	return resolveIn(code, page, options);

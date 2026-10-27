@@ -2,13 +2,13 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
-    encodeElement,
+    encode,
     PageIndex,
     PROFILE_L,
     PROFILE_M,
     PROFILE_S,
     resolveAll,
-    resolveCode
+    resolve
 } from "../../dist.lib/api.js";
 import { page, V1, V2 } from "../test.util.js";
 
@@ -36,14 +36,14 @@ const CASES = [
 ];
 
 
-test("Relocate on the same page (distinct elements auto-accepted)", () => {
+test("Relocate on the same page (distinct elements resolved confidently)", () => {
     for(const profile of PROFILES) {
         for(const [ selector ] of CASES) {
-            const code = encodeElement(onVersion1(selector), {
+            const code = encode(onVersion1(selector), {
                 page: INDEX_1,
                 profile
             });
-            const result = resolveCode(code, {
+            const result = resolve(code, {
                 page: INDEX_1
             });
 
@@ -61,12 +61,12 @@ test("Separate look-alike links by enclosing-block context", () => {
     });
 
     for(const selector of LOOKALIKES) {
-        const plain = resolveCode(encodeElement(onVersion1(selector), {
+        const plain = resolve(encode(onVersion1(selector), {
             page: INDEX_1
         }), {
             page: INDEX_1
         });
-        const withContext = resolveCode(encodeElement(onVersion1(selector), {
+        const withContext = resolve(encode(onVersion1(selector), {
             page: contextIndex
         }), {
             page: contextIndex
@@ -79,12 +79,12 @@ test("Separate look-alike links by enclosing-block context", () => {
 test("Relocate across the release (top-1, all profiles)", () => {
     for(const profile of PROFILES) {
         const hits = CASES.filter(([ before, after ]) => {
-            const code = encodeElement(onVersion1(before), {
+            const code = encode(onVersion1(before), {
                 page: INDEX_1,
                 profile
             });
 
-            return resolveCode(code, {
+            return resolve(code, {
                 page: INDEX_2,
                 tau: 0
             }).candidates[0]?.element === onVersion2(after);
@@ -95,19 +95,19 @@ test("Relocate across the release (top-1, all profiles)", () => {
 });
 
 test("Do not auto-accept a removed element", () => {
-    const code = encodeElement(onVersion1("a[href=\"/p/road\"]"), {
+    const code = encode(onVersion1("a[href=\"/p/road\"]"), {
         page: INDEX_1
     });
-    const result = resolveCode(code, {
+    const result = resolve(code, {
         page: INDEX_2
     });
 
-    assert.notDeepEqual(result.status, "confident", "Invalid status (removed element accepted)");
+    assert.notDeepEqual(result.status, "confident", "Invalid status (removed element resolved confidently)");
     assert.ok(result.candidates.length > 0, `Missing shortlist (${result.candidates.length} > ${0})`);
 });
 
 test("Assign distinct elements to look-alikes jointly", () => {
-    const codes = LOOKALIKES.map(selector => encodeElement(onVersion1(selector), {
+    const codes = LOOKALIKES.map(selector => encode(onVersion1(selector), {
         page: INDEX_1
     }));
     const results = resolveAll(codes, {
@@ -122,14 +122,14 @@ test("Assign distinct elements to look-alikes jointly", () => {
 
 test("Find elements by bucket lookup while scoring only part of the page", () => {
     for(const selector of [ "#email", "#signup", "#q" ]) {
-        const code = encodeElement(onVersion1(selector), {
+        const code = encode(onVersion1(selector), {
             page: INDEX_1,
             profile: PROFILE_L
         });
-        const scan = resolveCode(code, {
+        const scan = resolve(code, {
             page: INDEX_1
         });
-        const buckets = resolveCode(code, {
+        const buckets = resolve(code, {
             page: INDEX_1,
             lookup: "buckets",
             bandSize: 2
