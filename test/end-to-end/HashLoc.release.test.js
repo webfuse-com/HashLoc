@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+    absoluteXPath,
+    DomScan,
     encode,
+    idXPath,
     PageIndex,
     PROFILE_L,
     PROFILE_M,
@@ -138,5 +141,22 @@ test("Find elements by bucket lookup while scoring only part of the page", () =>
         assert.equal(scan.scored, INDEX_1.size, `Invalid scan (scored ${scan.scored} of ${INDEX_1.size}; ${selector})`);
         assert.equal(buckets.candidates[0].element, onVersion1(selector), `Invalid bucket lookup (${selector})`);
         assert.ok(buckets.scored < INDEX_1.size, `Invalid bucket lookup (scored ${buckets.scored} of ${INDEX_1.size}; ${selector})`);
+    }
+});
+
+test("Compute XPaths once per scan, identical to the standalone functions", () => {
+    const items = Array.from({ length: 300 }, (_, i) => `<li><a href="/p/${i}" data-xywh="${(i % 30) * 30},${Math.floor(i / 30) * 20},28,18">Item ${i}</a></li>`).join("");
+    const wide = page(`<main id="m"><ul>${items}</ul><div><span data-xywh="1,900,3,3">x</span><span id="k" data-xywh="9,900,3,3">y<b data-xywh="9,900,2,2">z</b></span></div></main>`);
+
+    for(const version of [ VERSION_1, wide ]) {
+        const scan = new DomScan(version.document, version.options);
+
+        for(const element of version.document.querySelectorAll("*")) {
+            const features = scan.features(element);
+
+            assert.equal(features.xpath, absoluteXPath(element), "Invalid absolute XPath");
+            assert.equal(features.idXpath, idXPath(element), "Invalid ID-XPath");
+            assert.equal(JSON.parse(JSON.stringify(features)).xpath, features.xpath, "Invalid serialized XPath");
+        }
     }
 });

@@ -31,6 +31,7 @@
     "eval:ablation": "npm run eval -- --methods none --profiles L --ablation L --modes 1,firstlast --name ablation",
     "eval:buckets": "npm run eval -- --methods none --modes 1,firstlast --lookup buckets:1,buckets:2,buckets:3 --name buckets",
     "eval:all": "npm run eval:accuracy && npm run eval:decomposition && npm run eval:drift && npm run eval:crossval && npm run eval:sketches && npm run eval:ablation",
+    "eval:rho": "PYTHONPATH=eval python eval/rho/dump_pairs.py dataset eval/results/rho-pairs.jsonl && node eval/rho/rho.mjs eval/results/rho-pairs.jsonl | tee eval/results/rho.txt",
     "eval:_summarize": "PYTHONPATH=eval python -m _summarize --date"
   },
   "devDependencies": {

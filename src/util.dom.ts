@@ -85,6 +85,97 @@ class NeighborIndex {
 	}
 }
 
+// XPaths of one document state, memoized: sibling positions are computed once per parent and each
+// path extends its parent's, so all paths together cost linear time instead of quadratic on wide DOMs.
+class PathCache {
+	private readonly steps: WeakMap<Element, string> = new WeakMap<Element, string>();
+	private readonly absolutePaths: WeakMap<Element, string> = new WeakMap<Element, string>();
+	private readonly idPaths: WeakMap<Element, string> = new WeakMap<Element, string>();
+
+	// Absolute XPath, e.g. /html/body/div[2]/a (same result as `absoluteXPath`).
+	absolute(element: Element): string {
+		return this.extend(element, this.absolutePaths, () => null);
+	}
+
+	// XPath from the nearest element with an id (same result as `idXPath`).
+	id(element: Element): string {
+		return this.extend(element, this.idPaths, (current: Element) => {
+			const id: string | null = current.getAttribute("id");
+
+			return id ? `//*[@id="${id}"]` : null;
+		});
+	}
+
+	// Path of `element`: the cached path of the nearest memoized or anchored ancestor, extended by one
+	// step per level. Iterative, so deep documents cannot overflow the stack.
+	private extend(element: Element, memo: WeakMap<Element, string>, anchor: (current: Element) => string | null): string {
+		const chain: Element[] = [];
+		let base: string = "";
+
+		for(let current: Element | null = element; current; current = current.parentElement) {
+			const known: string | undefined = memo.get(current);
+
+			if(known !== undefined) {
+				base = known;
+				break;
+			}
+
+			const anchored: string | null = anchor(current);
+
+			if(anchored !== null) {
+				memo.set(current, anchored);
+				base = anchored;
+				break;
+			}
+
+			chain.push(current);
+		}
+
+		for(let index: number = chain.length - 1; index >= 0; index--) {
+			base = `${base}/${this.step(chain[index])}`;
+			memo.set(chain[index], base);
+		}
+
+		return base;
+	}
+
+	private step(element: Element): string {
+		const cached: string | undefined = this.steps.get(element);
+
+		if(cached !== undefined) return cached;
+
+		const parent: Element | null = element.parentElement;
+
+		if(!parent) {
+			const tag: string = element.tagName.toLowerCase();
+
+			this.steps.set(element, tag);
+
+			return tag;
+		}
+
+		// One pass over the siblings assigns every child its step.
+		const counts: Map<string, number> = new Map<string, number>();
+		const children: Element[] = Array.from(parent.children);
+
+		for(const child of children) {
+			counts.set(child.tagName, (counts.get(child.tagName) ?? 0) + 1);
+		}
+
+		const seen: Map<string, number> = new Map<string, number>();
+
+		for(const child of children) {
+			const position: number = (seen.get(child.tagName) ?? 0) + 1;
+			const tag: string = child.tagName.toLowerCase();
+
+			seen.set(child.tagName, position);
+			this.steps.set(child, (counts.get(child.tagName) ?? 0) > 1 ? `${tag}[${position}]` : tag);
+		}
+
+		return this.steps.get(element) ?? element.tagName.toLowerCase();
+	}
+}
+
 // A scan of one document state: candidate elements, their boxes, and a neighbor-text index.
 export class DomScan {
 	readonly elements: Element[] = [];
@@ -95,6 +186,7 @@ export class DomScan {
 	private readonly contextLevels: number;
 	private readonly pageWidth: number;
 	private readonly viewportHeight: number;
+	private readonly paths: PathCache = new PathCache();
 
 	constructor(document: Document, options: DomOptions = {}) {
 		const root: Element = options.root ?? document.body ?? document.documentElement;
@@ -161,15 +253,15 @@ export class DomScan {
 			shape: visibleBox.width / visibleBox.height
 		} : null;
 
-		return {
+		const features: ElementFeatures = {
 			tag: element.tagName.toLowerCase(),
 			classes: Array.from(element.classList),
 			name: element.getAttribute("name") ?? "",
 			id: element.getAttribute("id") ?? "",
 			href: element.getAttribute("href") ?? "",
 			alt: element.getAttribute("alt") ?? "",
-			xpath: absoluteXPath(element),
-			idXpath: idXPath(element),
+			xpath: "",
+			idXpath: "",
 			isButton: isButton(element),
 			geom: geom,
 			text: text,
@@ -178,6 +270,12 @@ export class DomScan {
 			ariaLabel: element.getAttribute("aria-label") ?? "",
 			attributes: attributes
 		};
+
+		// Paths are computed on first read: profiles without path segments never pay for them.
+		lazy(features, "xpath", () => this.paths.absolute(element));
+		lazy(features, "idXpath", () => this.paths.id(element));
+
+		return features;
 	}
 
 	// Features of all candidates, in `elements` order.
@@ -261,6 +359,27 @@ function truncate(text: string, maxLength: number = MAX_TEXT): string {
 	const collapsed: string = text.replace(/\s+/g, " ").trim();
 
 	return collapsed.length > maxLength ? collapsed.slice(0, maxLength) : collapsed;
+}
+
+// Replace a string field with a getter that computes the value once, then stores it as a plain,
+// enumerable property (so the features stay JSON-serializable and spreadable).
+function lazy(target: ElementFeatures, key: "xpath" | "idXpath", compute: () => string): void {
+	Object.defineProperty(target, key, {
+		configurable: true,
+		enumerable: true,
+		get: (): string => {
+			const value: string = compute();
+
+			Object.defineProperty(target, key, {
+				value: value,
+				configurable: true,
+				enumerable: true,
+				writable: true
+			});
+
+			return value;
+		}
+	});
 }
 
 function xpathStep(element: Element): string {
