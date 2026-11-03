@@ -125,7 +125,7 @@ node --test [--test-name-pattern="<TEST-TITLE>"] "test/<SUITE>/<FILE=*>.test.js"
 
 #### Evaluate
 
-> Place the [Kluge & Stocco benchmark](./eval/README.md) in `./dataset` (one folder per site), and build first: the evaluation runs `dist.lib` through a Node bridge (`eval/HashLoc.bridge.mjs`).
+> Copy the [Kluge & Stocco dataset](https://github.com/ast-fortiss-tum/web-element-localization-using-similo-like-approaches) to the `/dataset` directory.
 
 ``` console
 cd eval && pip install -r requirements.txt
@@ -147,6 +147,12 @@ npm run eval:<study>
 npm run eval -- --verbose --split 2 --modes 1,firstlast --profiles M
 ```
 
-> Results go to `eval/results/<date>/<study>/`; re-create summaries with `npm run eval:_summarize -- <date>`.
-
 ##
+
+<p align="center">
+  <strong>Inline Identity: Change-Tolerant Web Element Locators from Similarity Sketches</strong>
+  <br>
+  <sub><a href="https://github.com/t-ski" target="_blank">Thassilo M. Schiepanski</a></sub>
+  <br>
+  <sub>Surfly BV</sub>
+</p>
