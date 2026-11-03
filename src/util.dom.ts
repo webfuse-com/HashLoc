@@ -33,26 +33,46 @@ interface TextSource {
 interface NeighborHit {
 	distance: number;
 	text: string;
+	cellX: number;
+	cellY: number;
+	order: number;
+}
+
+interface OccupiedCell {
+	cellX: number;
+	cellY: number;
+	sources: TextSource[];
 }
 
 
 class NeighborIndex {
 	private readonly grid: Map<string, TextSource[]> = new Map<string, TextSource[]>();
+	private readonly occupied: OccupiedCell[] = [];
 
 	constructor(sources: TextSource[]) {
 		for(const source of sources) {
-			const key: string = `${Math.floor(source.centerX / GRID_CELL)},${Math.floor(source.centerY / GRID_CELL)}`;
+			const cellX: number = Math.floor(source.centerX / GRID_CELL);
+			const cellY: number = Math.floor(source.centerY / GRID_CELL);
+			const key: string = `${cellX},${cellY}`;
 			const bucket: TextSource[] | undefined = this.grid.get(key);
 
 			if(bucket) {
 				bucket.push(source);
 			} else {
-				this.grid.set(key, [ source ]);
+				const fresh: TextSource[] = [ source ];
+
+				this.grid.set(key, fresh);
+				this.occupied.push({
+					cellX: cellX,
+					cellY: cellY,
+					sources: fresh
+				});
 			}
 		}
 	}
 
-	// Text of sources whose center lies in the rect grown by `margin`, nearest first.
+	// Text of sources whose center lies in the rect grown by `margin`, nearest first. Large regions scan
+	// the occupied cells instead of every covered cell; ties keep the grid order.
 	textAround(element: Element, rect: Rect, margin: number): string {
 		const left: number = rect.x - margin;
 		const top: number = rect.y - margin;
@@ -60,44 +80,60 @@ class NeighborIndex {
 		const bottom: number = rect.y + rect.height + margin;
 		const centerX: number = rect.x + rect.width / 2;
 		const centerY: number = rect.y + rect.height / 2;
+		const firstX: number = Math.floor(left / GRID_CELL);
+		const lastX: number = Math.floor(right / GRID_CELL);
+		const firstY: number = Math.floor(top / GRID_CELL);
+		const lastY: number = Math.floor(bottom / GRID_CELL);
 		const hits: NeighborHit[] = [];
 
-		for(let cellX: number = Math.floor(left / GRID_CELL); cellX <= Math.floor(right / GRID_CELL); cellX++) {
-			for(let cellY: number = Math.floor(top / GRID_CELL); cellY <= Math.floor(bottom / GRID_CELL); cellY++) {
-				for(const source of this.grid.get(`${cellX},${cellY}`) ?? []) {
-					if(source.centerX < left || source.centerX > right || source.centerY < top || source.centerY > bottom) {
-						continue;
-					}
+		const collect = (cellX: number, cellY: number, sources: TextSource[]): void => {
+			sources.forEach((source: TextSource, order: number) => {
+				if(source.centerX < left || source.centerX > right || source.centerY < top || source.centerY > bottom) return;
 
-					if(source.element === element || element.contains(source.element)) continue;
+				if(source.element === element || element.contains(source.element)) return;
 
-					hits.push({
-						distance: Math.hypot(source.centerX - centerX, source.centerY - centerY),
-						text: source.text
-					});
+				hits.push({
+					distance: Math.hypot(source.centerX - centerX, source.centerY - centerY),
+					text: source.text,
+					cellX: cellX,
+					cellY: cellY,
+					order: order
+				});
+			});
+		};
+
+		if((lastX - firstX + 1) * (lastY - firstY + 1) <= this.occupied.length) {
+			for(let cellX: number = firstX; cellX <= lastX; cellX++) {
+				for(let cellY: number = firstY; cellY <= lastY; cellY++) {
+					collect(cellX, cellY, this.grid.get(`${cellX},${cellY}`) ?? []);
 				}
+			}
+		} else {
+			for(const cell of this.occupied) {
+				if(cell.cellX < firstX || cell.cellX > lastX || cell.cellY < firstY || cell.cellY > lastY) continue;
+
+				collect(cell.cellX, cell.cellY, cell.sources);
 			}
 		}
 
-		hits.sort((first: NeighborHit, second: NeighborHit) => first.distance - second.distance);
+		hits.sort((first: NeighborHit, second: NeighborHit) =>
+			first.distance - second.distance || first.cellX - second.cellX || first.cellY - second.cellY || first.order - second.order
+		);
 
 		return truncate(hits.map((hit: NeighborHit) => hit.text).join(" "));
 	}
 }
 
-// XPaths of one document state, memoized: sibling positions are computed once per parent and each
-// path extends its parent's, so all paths together cost linear time instead of quadratic on wide DOMs.
+// XPaths of one document state, memoized per element and computed from sibling positions found once per parent.
 class PathCache {
 	private readonly steps: WeakMap<Element, string> = new WeakMap<Element, string>();
 	private readonly absolutePaths: WeakMap<Element, string> = new WeakMap<Element, string>();
 	private readonly idPaths: WeakMap<Element, string> = new WeakMap<Element, string>();
 
-	// Absolute XPath, e.g. /html/body/div[2]/a (same result as `absoluteXPath`).
 	absolute(element: Element): string {
 		return this.extend(element, this.absolutePaths, () => null);
 	}
 
-	// XPath from the nearest element with an id (same result as `idXPath`).
 	id(element: Element): string {
 		return this.extend(element, this.idPaths, (current: Element) => {
 			const id: string | null = current.getAttribute("id");
@@ -106,8 +142,6 @@ class PathCache {
 		});
 	}
 
-	// Path of `element`: the cached path of the nearest memoized or anchored ancestor, extended by one
-	// step per level. Iterative, so deep documents cannot overflow the stack.
 	private extend(element: Element, memo: WeakMap<Element, string>, anchor: (current: Element) => string | null): string {
 		const chain: Element[] = [];
 		let base: string = "";
@@ -154,15 +188,13 @@ class PathCache {
 			return tag;
 		}
 
-		// One pass over the siblings assigns every child its step.
-		const counts: Map<string, number> = new Map<string, number>();
 		const children: Element[] = Array.from(parent.children);
+		const counts: Map<string, number> = new Map<string, number>();
+		const seen: Map<string, number> = new Map<string, number>();
 
 		for(const child of children) {
 			counts.set(child.tagName, (counts.get(child.tagName) ?? 0) + 1);
 		}
-
-		const seen: Map<string, number> = new Map<string, number>();
 
 		for(const child of children) {
 			const position: number = (seen.get(child.tagName) ?? 0) + 1;
@@ -271,7 +303,6 @@ export class DomScan {
 			attributes: attributes
 		};
 
-		// Paths are computed on first read: profiles without path segments never pay for them.
 		lazy(features, "xpath", () => this.paths.absolute(element));
 		lazy(features, "idXpath", () => this.paths.id(element));
 
@@ -361,8 +392,7 @@ function truncate(text: string, maxLength: number = MAX_TEXT): string {
 	return collapsed.length > maxLength ? collapsed.slice(0, maxLength) : collapsed;
 }
 
-// Replace a string field with a getter that computes the value once, then stores it as a plain,
-// enumerable property (so the features stay JSON-serializable and spreadable).
+// Computed on first read, then stored as a plain enumerable property.
 function lazy(target: ElementFeatures, key: "xpath" | "idXpath", compute: () => string): void {
 	Object.defineProperty(target, key, {
 		configurable: true,

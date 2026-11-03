@@ -29,6 +29,7 @@ export declare class DomScan {
     private readonly contextLevels;
     private readonly pageWidth;
     private readonly viewportHeight;
+    private readonly paths;
     constructor(document: Document, options?: DomOptions);
     features(element: Element, rect?: Rect | null): ElementFeatures;
     allFeatures(): ElementFeatures[];

@@ -38,6 +38,70 @@ class NeighborIndex {
     return truncate(hits.map((hit) => hit.text).join(" "));
   }
 }
+class PathCache {
+  steps = /* @__PURE__ */ new WeakMap();
+  absolutePaths = /* @__PURE__ */ new WeakMap();
+  idPaths = /* @__PURE__ */ new WeakMap();
+  // Absolute XPath, e.g. /html/body/div[2]/a (same result as `absoluteXPath`).
+  absolute(element) {
+    return this.extend(element, this.absolutePaths, () => null);
+  }
+  // XPath from the nearest element with an id (same result as `idXPath`).
+  id(element) {
+    return this.extend(element, this.idPaths, (current) => {
+      const id = current.getAttribute("id");
+      return id ? `//*[@id="${id}"]` : null;
+    });
+  }
+  // Path of `element`: the cached path of the nearest memoized or anchored ancestor, extended by one
+  // step per level. Iterative, so deep documents cannot overflow the stack.
+  extend(element, memo, anchor) {
+    const chain = [];
+    let base = "";
+    for (let current = element; current; current = current.parentElement) {
+      const known = memo.get(current);
+      if (known !== void 0) {
+        base = known;
+        break;
+      }
+      const anchored = anchor(current);
+      if (anchored !== null) {
+        memo.set(current, anchored);
+        base = anchored;
+        break;
+      }
+      chain.push(current);
+    }
+    for (let index = chain.length - 1; index >= 0; index--) {
+      base = `${base}/${this.step(chain[index])}`;
+      memo.set(chain[index], base);
+    }
+    return base;
+  }
+  step(element) {
+    const cached = this.steps.get(element);
+    if (cached !== void 0) return cached;
+    const parent = element.parentElement;
+    if (!parent) {
+      const tag = element.tagName.toLowerCase();
+      this.steps.set(element, tag);
+      return tag;
+    }
+    const counts = /* @__PURE__ */ new Map();
+    const children = Array.from(parent.children);
+    for (const child of children) {
+      counts.set(child.tagName, (counts.get(child.tagName) ?? 0) + 1);
+    }
+    const seen = /* @__PURE__ */ new Map();
+    for (const child of children) {
+      const position = (seen.get(child.tagName) ?? 0) + 1;
+      const tag = child.tagName.toLowerCase();
+      seen.set(child.tagName, position);
+      this.steps.set(child, (counts.get(child.tagName) ?? 0) > 1 ? `${tag}[${position}]` : tag);
+    }
+    return this.steps.get(element) ?? element.tagName.toLowerCase();
+  }
+}
 class DomScan {
   elements = [];
   rects = [];
@@ -47,6 +111,7 @@ class DomScan {
   contextLevels;
   pageWidth;
   viewportHeight;
+  paths = new PathCache();
   constructor(document, options = {}) {
     const root = options.root ?? document.body ?? document.documentElement;
     const view = document.defaultView;
@@ -98,15 +163,15 @@ class DomScan {
       area: visibleBox.width * visibleBox.height,
       shape: visibleBox.width / visibleBox.height
     } : null;
-    return {
+    const features = {
       tag: element.tagName.toLowerCase(),
       classes: Array.from(element.classList),
       name: element.getAttribute("name") ?? "",
       id: element.getAttribute("id") ?? "",
       href: element.getAttribute("href") ?? "",
       alt: element.getAttribute("alt") ?? "",
-      xpath: absoluteXPath(element),
-      idXpath: idXPath(element),
+      xpath: "",
+      idXpath: "",
       isButton: isButton(element),
       geom,
       text,
@@ -115,6 +180,9 @@ class DomScan {
       ariaLabel: element.getAttribute("aria-label") ?? "",
       attributes
     };
+    lazy(features, "xpath", () => this.paths.absolute(element));
+    lazy(features, "idXpath", () => this.paths.id(element));
+    return features;
   }
   // Features of all candidates, in `elements` order.
   allFeatures() {
@@ -179,6 +247,22 @@ function isVisible(element, rect) {
 function truncate(text, maxLength = MAX_TEXT) {
   const collapsed = text.replace(/\s+/g, " ").trim();
   return collapsed.length > maxLength ? collapsed.slice(0, maxLength) : collapsed;
+}
+function lazy(target, key, compute) {
+  Object.defineProperty(target, key, {
+    configurable: true,
+    enumerable: true,
+    get: () => {
+      const value = compute();
+      Object.defineProperty(target, key, {
+        value,
+        configurable: true,
+        enumerable: true,
+        writable: true
+      });
+      return value;
+    }
+  });
 }
 function xpathStep(element) {
   const tag = element.tagName.toLowerCase();
