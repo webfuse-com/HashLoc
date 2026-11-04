@@ -1,5 +1,9 @@
 <h1 align="center">HashLoc</h1>
 
+<p align="center">
+  <img src="./.github/sketching-example.png" alt="Example of sketching (top) on an element fingerprint (bottom)" width="500">
+</p>
+
 **HashLoc** is a stateless web element locator represenation compatible with [Similo](https://arxiv.org/abs/2208.00677) localisation.
 
 ##
