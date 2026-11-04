@@ -242,7 +242,7 @@ visibleText(element); absoluteXPath(element); idXPath(element); isButton(element
 
 | Option | Description | Default |
 | :-| :- | :- |
-| `root` | Subtree to index. | `document.body` |
+| `root` | Subtree or shadow root to index. Inside a shadow root, XPaths are relative to the root. | `document.body` |
 | `rectOf` | Layout override returning document coordinates (e.g., for jsdom). | `getBoundingClientRect()` |
 | `includeHidden` | Keep elements without a visible box. | `false` |
 | `filter` | Extra candidate filter. | |

@@ -2,8 +2,8 @@ import { type ElementFeatures, type Geometry, type Rect } from "./types.js";
 
 
 export interface DomOptions {
-	/** Subtree to index (default: document.body). */
-	root?: Element;
+	/** Subtree or shadow root to index (default: document.body). */
+	root?: Element | ShadowRoot;
 	/** Layout override, e.g. for tests or non-rendering environments. Must return document coordinates. */
 	rectOf?: (element: Element) => Rect | null;
 	/** Keep elements without a visible box (default false). */
@@ -221,7 +221,7 @@ export class DomScan {
 	private readonly paths: PathCache = new PathCache();
 
 	constructor(document: Document, options: DomOptions = {}) {
-		const root: Element = options.root ?? document.body ?? document.documentElement;
+		const root: Element | ShadowRoot = options.root ?? document.body ?? document.documentElement;
 		const view: Window | null = document.defaultView;
 
 		this.rectOf = options.rectOf ?? defaultRect;
