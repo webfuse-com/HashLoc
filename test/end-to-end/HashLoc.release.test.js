@@ -160,3 +160,57 @@ test("Compute XPaths once per scan, identical to the standalone functions", () =
         }
     }
 });
+
+test("Short-circuit on a unique ID and fall back otherwise", () => {
+    const code = encode(onVersion1("#email"), {
+        page: INDEX_1,
+        profile: PROFILE_L
+    });
+    const same = resolve(code, {
+        page: INDEX_1,
+        idShortcut: true
+    });
+    const changed = resolve(code, {
+        page: INDEX_2,
+        idShortcut: true,
+        tau: 0
+    });
+    const withoutId = resolve(encode(onVersion1("#email"), {
+        page: INDEX_1,
+        profile: PROFILE_S
+    }), {
+        page: INDEX_1,
+        idShortcut: true
+    });
+
+    assert.equal(same.scored, 1, `Invalid shortcut (scored ${same.scored} of ${INDEX_1.size})`);
+    assert.equal(same.element, onVersion1("#email"), "Invalid shortcut (element)");
+    assert.deepEqual(same.status, "confident", "Invalid shortcut (status)");
+    assert.equal(changed.scored, INDEX_2.size, `Invalid fallback (ID changed; scored ${changed.scored} of ${INDEX_2.size})`);
+    assert.equal(changed.candidates[0].element, onVersion2("input[type=\"email\"]"), "Invalid fallback (ID changed; element)");
+    assert.equal(withoutId.scored, INDEX_1.size, `Invalid fallback (profile S; scored ${withoutId.scored} of ${INDEX_1.size})`);
+
+    const duplicate = page(`<main><input id="mail" placeholder="Work" data-xywh="10,10,200,30"><input id="mail" placeholder="Home" data-xywh="10,60,200,30"></main>`);
+    const duplicateIndex = PageIndex.fromDocument(duplicate.document, duplicate.options);
+    const duplicateResult = resolve(encode(duplicate.document.querySelectorAll("#mail")[1], {
+        page: duplicateIndex,
+        profile: PROFILE_L
+    }), {
+        page: duplicateIndex,
+        idShortcut: true
+    });
+
+    assert.equal(duplicateResult.scored, duplicateIndex.size, `Invalid fallback (duplicate ID; scored ${duplicateResult.scored} of ${duplicateIndex.size})`);
+
+    const before = page(`<main><input id="q" type="search" placeholder="Search products" data-xywh="40,20,400,36"><a href="/cart" data-xywh="900,20,80,36">Cart</a></main>`);
+    const after = page(`<main><button id="q" data-xywh="40,600,120,40">Subscribe to newsletter</button><a href="/cart" data-xywh="900,20,80,36">Cart</a></main>`);
+    const reused = resolve(encode(before.document.querySelector("#q"), {
+        page: PageIndex.fromDocument(before.document, before.options),
+        profile: PROFILE_L
+    }), {
+        page: PageIndex.fromDocument(after.document, after.options),
+        idShortcut: true
+    });
+
+    assert.notDeepEqual(reused.status, "confident", "Invalid status (reused ID resolved confidently)");
+});

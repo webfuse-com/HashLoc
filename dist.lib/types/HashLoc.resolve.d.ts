@@ -35,6 +35,8 @@ export interface ResolveOptions {
     lookup?: "scan" | "buckets";
     /** Bucket lookup: MinHash slots per bucket band (default 2); smaller bands make bigger buckets. */
     bandSize?: number;
+    /** Take the only element whose ID segment equals the code's without scoring the page (default false). */
+    idShortcut?: boolean;
 }
 export interface ResolveAllOptions extends ResolveOptions {
     /** Candidates per code considered in the joint assignment (default 10). */
@@ -56,12 +58,14 @@ export declare class PageIndex {
     readonly elements: (Element | null)[];
     private readonly cache;
     private readonly buckets;
+    private readonly ids;
     private readonly scan;
     constructor(features: ElementFeatures[], elements?: (Element | null)[], scan?: DomScan | null);
     static fromDocument(target?: Document, options?: DomOptions): PageIndex;
     get size(): number;
     valuesFor(profile: Profile): SegmentValues[];
     bucketsFor(profile: Profile, bandSize: number): Map<string, number[]>;
+    idsFor(profile: Profile, segmentIndex: number): Map<number, number[]>;
     featuresOf(element: Element): ElementFeatures;
 }
 export declare function resolveIn(code: string, page: PageIndex, options?: ResolveOptions): ResolveResult;

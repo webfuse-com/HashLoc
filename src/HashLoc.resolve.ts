@@ -43,6 +43,8 @@ export interface ResolveOptions {
 	lookup?: "scan" | "buckets";
 	/** Bucket lookup: MinHash slots per bucket band (default 2); smaller bands make bigger buckets. */
 	bandSize?: number;
+	/** Take the only element whose ID segment equals the code's without scoring the page (default false). */
+	idShortcut?: boolean;
 }
 
 export interface ResolveAllOptions extends ResolveOptions {
@@ -73,6 +75,7 @@ export class PageIndex {
 	readonly elements: (Element | null)[];
 	private readonly cache: WeakMap<Profile, SegmentValues[]> = new WeakMap<Profile, SegmentValues[]>();
 	private readonly buckets: WeakMap<Profile, Map<number, Map<string, number[]>>> = new WeakMap<Profile, Map<number, Map<string, number[]>>>();
+	private readonly ids: WeakMap<Profile, Map<number, number[]>> = new WeakMap<Profile, Map<number, number[]>>();
 	private readonly scan: DomScan | null;
 
 	constructor(features: ElementFeatures[], elements?: (Element | null)[], scan: DomScan | null = null) {
@@ -129,6 +132,30 @@ export class PageIndex {
 				}
 			});
 			byBand.set(bandSize, index);
+		}
+
+		return index;
+	}
+
+	// ID-segment value -> elements, for the profile's ID segment. Built on first use, cached per profile.
+	idsFor(profile: Profile, segmentIndex: number): Map<number, number[]> {
+		let index: Map<number, number[]> | undefined = this.ids.get(profile);
+
+		if(!index) {
+			index = new Map<number, number[]>();
+
+			const target: Map<number, number[]> = index;
+
+			this.valuesFor(profile).forEach((values: SegmentValues, element: number) => {
+				const value: number = values[segmentIndex][0];
+
+				if(value === 0) return;
+
+				const members: number[] | undefined = target.get(value);
+
+				members ? members.push(element) : target.set(value, [ element ]);
+			});
+			this.ids.set(profile, index);
 		}
 
 		return index;
@@ -251,6 +278,21 @@ function scoresFor(decoded: DecodedCode, page: PageIndex, options: ResolveOption
 	return scores;
 }
 
+// The only element whose ID segment equals the code's, or -1 (no ID segment, empty ID, none or several matches).
+function idMatch(decoded: DecodedCode, page: PageIndex): number {
+	const segmentIndex: number = decoded.profile.segments.findIndex((segment: SegmentSpec) => segment.kind === "hash" && segment.feature === "id");
+
+	if(segmentIndex < 0) return -1;
+
+	const value: number = decoded.values[segmentIndex][0];
+
+	if(value === 0) return -1;
+
+	const members: number[] = page.idsFor(decoded.profile, segmentIndex).get(value) ?? [];
+
+	return members.length === 1 ? members[0] : -1;
+}
+
 function topTwo(scores: number[]): [ number, number ] {
 	let best: number = -1;
 	let second: number = -1;
@@ -285,6 +327,16 @@ function pickProfile(profile: Profile | string | undefined, registry: ProfileReg
 // Resolve one code against a page. Throws CodeError for malformed codes.
 export function resolveIn(code: string, page: PageIndex, options: ResolveOptions = {}): ResolveResult {
 	const decoded: DecodedCode = decodeCode(code, options.registry ?? defaultRegistry);
+	const match: number = options.idShortcut ? idMatch(decoded, page) : -1;
+
+	if(match >= 0) {
+		const scores: number[] = new Array<number>(page.size).fill(-1);
+
+		scores[match] = scoreValues(decoded.profile, decoded.values, page.valuesFor(decoded.profile)[match]);
+
+		return decide(decoded, page, scores, match, -1, options);
+	}
+
 	const scores: number[] = scoresFor(decoded, page, options);
 	const [ best, second ]: [ number, number ] = topTwo(scores);
 

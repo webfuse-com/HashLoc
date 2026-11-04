@@ -837,18 +837,28 @@
   // src/util.dom.ts
   var NeighborIndex = class {
     grid = /* @__PURE__ */ new Map();
+    occupied = [];
     constructor(sources) {
       for (const source of sources) {
-        const key = `${Math.floor(source.centerX / GRID_CELL)},${Math.floor(source.centerY / GRID_CELL)}`;
+        const cellX = Math.floor(source.centerX / GRID_CELL);
+        const cellY = Math.floor(source.centerY / GRID_CELL);
+        const key = `${cellX},${cellY}`;
         const bucket = this.grid.get(key);
         if (bucket) {
           bucket.push(source);
         } else {
-          this.grid.set(key, [source]);
+          const fresh = [source];
+          this.grid.set(key, fresh);
+          this.occupied.push({
+            cellX,
+            cellY,
+            sources: fresh
+          });
         }
       }
     }
-    // Text of sources whose center lies in the rect grown by `margin`, nearest first.
+    // Text of sources whose center lies in the rect grown by `margin`, nearest first. Large regions scan
+    // the occupied cells instead of every covered cell; ties keep the grid order.
     textAround(element, rect, margin) {
       const left = rect.x - margin;
       const top = rect.y - margin;
@@ -856,22 +866,39 @@
       const bottom = rect.y + rect.height + margin;
       const centerX = rect.x + rect.width / 2;
       const centerY = rect.y + rect.height / 2;
+      const firstX = Math.floor(left / GRID_CELL);
+      const lastX = Math.floor(right / GRID_CELL);
+      const firstY = Math.floor(top / GRID_CELL);
+      const lastY = Math.floor(bottom / GRID_CELL);
       const hits = [];
-      for (let cellX = Math.floor(left / GRID_CELL); cellX <= Math.floor(right / GRID_CELL); cellX++) {
-        for (let cellY = Math.floor(top / GRID_CELL); cellY <= Math.floor(bottom / GRID_CELL); cellY++) {
-          for (const source of this.grid.get(`${cellX},${cellY}`) ?? []) {
-            if (source.centerX < left || source.centerX > right || source.centerY < top || source.centerY > bottom) {
-              continue;
-            }
-            if (source.element === element || element.contains(source.element)) continue;
-            hits.push({
-              distance: Math.hypot(source.centerX - centerX, source.centerY - centerY),
-              text: source.text
-            });
+      const collect = (cellX, cellY, sources) => {
+        sources.forEach((source, order) => {
+          if (source.centerX < left || source.centerX > right || source.centerY < top || source.centerY > bottom) return;
+          if (source.element === element || element.contains(source.element)) return;
+          hits.push({
+            distance: Math.hypot(source.centerX - centerX, source.centerY - centerY),
+            text: source.text,
+            cellX,
+            cellY,
+            order
+          });
+        });
+      };
+      if ((lastX - firstX + 1) * (lastY - firstY + 1) <= this.occupied.length) {
+        for (let cellX = firstX; cellX <= lastX; cellX++) {
+          for (let cellY = firstY; cellY <= lastY; cellY++) {
+            collect(cellX, cellY, this.grid.get(`${cellX},${cellY}`) ?? []);
           }
         }
+      } else {
+        for (const cell of this.occupied) {
+          if (cell.cellX < firstX || cell.cellX > lastX || cell.cellY < firstY || cell.cellY > lastY) continue;
+          collect(cell.cellX, cell.cellY, cell.sources);
+        }
       }
-      hits.sort((first, second) => first.distance - second.distance);
+      hits.sort(
+        (first, second) => first.distance - second.distance || first.cellX - second.cellX || first.cellY - second.cellY || first.order - second.order
+      );
       return truncate(hits.map((hit) => hit.text).join(" "));
     }
   };
@@ -879,19 +906,15 @@
     steps = /* @__PURE__ */ new WeakMap();
     absolutePaths = /* @__PURE__ */ new WeakMap();
     idPaths = /* @__PURE__ */ new WeakMap();
-    // Absolute XPath, e.g. /html/body/div[2]/a (same result as `absoluteXPath`).
     absolute(element) {
       return this.extend(element, this.absolutePaths, () => null);
     }
-    // XPath from the nearest element with an id (same result as `idXPath`).
     id(element) {
       return this.extend(element, this.idPaths, (current) => {
         const id = current.getAttribute("id");
         return id ? `//*[@id="${id}"]` : null;
       });
     }
-    // Path of `element`: the cached path of the nearest memoized or anchored ancestor, extended by one
-    // step per level. Iterative, so deep documents cannot overflow the stack.
     extend(element, memo, anchor) {
       const chain = [];
       let base = "";
@@ -924,12 +947,12 @@
         this.steps.set(element, tag);
         return tag;
       }
-      const counts = /* @__PURE__ */ new Map();
       const children = Array.from(parent.children);
+      const counts = /* @__PURE__ */ new Map();
+      const seen = /* @__PURE__ */ new Map();
       for (const child of children) {
         counts.set(child.tagName, (counts.get(child.tagName) ?? 0) + 1);
       }
-      const seen = /* @__PURE__ */ new Map();
       for (const child of children) {
         const position = (seen.get(child.tagName) ?? 0) + 1;
         const tag = child.tagName.toLowerCase();
@@ -1277,6 +1300,7 @@
     elements;
     cache = /* @__PURE__ */ new WeakMap();
     buckets = /* @__PURE__ */ new WeakMap();
+    ids = /* @__PURE__ */ new WeakMap();
     scan;
     constructor(features, elements, scan = null) {
       this.features = features;
@@ -1318,6 +1342,22 @@
           }
         });
         byBand.set(bandSize, index);
+      }
+      return index;
+    }
+    // ID-segment value -> elements, for the profile's ID segment. Built on first use, cached per profile.
+    idsFor(profile, segmentIndex) {
+      let index = this.ids.get(profile);
+      if (!index) {
+        index = /* @__PURE__ */ new Map();
+        const target = index;
+        this.valuesFor(profile).forEach((values, element) => {
+          const value = values[segmentIndex][0];
+          if (value === 0) return;
+          const members = target.get(value);
+          members ? members.push(element) : target.set(value, [element]);
+        });
+        this.ids.set(profile, index);
       }
       return index;
     }
@@ -1403,6 +1443,14 @@
     }
     return scores;
   }
+  function idMatch(decoded, page) {
+    const segmentIndex = decoded.profile.segments.findIndex((segment) => segment.kind === "hash" && segment.feature === "id");
+    if (segmentIndex < 0) return -1;
+    const value = decoded.values[segmentIndex][0];
+    if (value === 0) return -1;
+    const members = page.idsFor(decoded.profile, segmentIndex).get(value) ?? [];
+    return members.length === 1 ? members[0] : -1;
+  }
   function topTwo(scores) {
     let best = -1;
     let second = -1;
@@ -1427,6 +1475,12 @@
   }
   function resolveIn(code, page, options = {}) {
     const decoded = decodeCode(code, options.registry ?? defaultRegistry);
+    const match = options.idShortcut ? idMatch(decoded, page) : -1;
+    if (match >= 0) {
+      const scores2 = new Array(page.size).fill(-1);
+      scores2[match] = scoreValues(decoded.profile, decoded.values, page.valuesFor(decoded.profile)[match]);
+      return decide(decoded, page, scores2, match, -1, options);
+    }
     const scores = scoresFor(decoded, page, options);
     const [best, second] = topTwo(scores);
     return decide(decoded, page, scores, best, second, options);

@@ -8,6 +8,7 @@ class PageIndex {
   elements;
   cache = /* @__PURE__ */ new WeakMap();
   buckets = /* @__PURE__ */ new WeakMap();
+  ids = /* @__PURE__ */ new WeakMap();
   scan;
   constructor(features, elements, scan = null) {
     this.features = features;
@@ -49,6 +50,22 @@ class PageIndex {
         }
       });
       byBand.set(bandSize, index);
+    }
+    return index;
+  }
+  // ID-segment value -> elements, for the profile's ID segment. Built on first use, cached per profile.
+  idsFor(profile, segmentIndex) {
+    let index = this.ids.get(profile);
+    if (!index) {
+      index = /* @__PURE__ */ new Map();
+      const target = index;
+      this.valuesFor(profile).forEach((values, element) => {
+        const value = values[segmentIndex][0];
+        if (value === 0) return;
+        const members = target.get(value);
+        members ? members.push(element) : target.set(value, [element]);
+      });
+      this.ids.set(profile, index);
     }
     return index;
   }
@@ -134,6 +151,14 @@ function scoresFor(decoded, page, options = {}) {
   }
   return scores;
 }
+function idMatch(decoded, page) {
+  const segmentIndex = decoded.profile.segments.findIndex((segment) => segment.kind === "hash" && segment.feature === "id");
+  if (segmentIndex < 0) return -1;
+  const value = decoded.values[segmentIndex][0];
+  if (value === 0) return -1;
+  const members = page.idsFor(decoded.profile, segmentIndex).get(value) ?? [];
+  return members.length === 1 ? members[0] : -1;
+}
 function topTwo(scores) {
   let best = -1;
   let second = -1;
@@ -158,6 +183,12 @@ function pickProfile(profile, registry) {
 }
 function resolveIn(code, page, options = {}) {
   const decoded = decodeCode(code, options.registry ?? defaultRegistry);
+  const match = options.idShortcut ? idMatch(decoded, page) : -1;
+  if (match >= 0) {
+    const scores2 = new Array(page.size).fill(-1);
+    scores2[match] = scoreValues(decoded.profile, decoded.values, page.valuesFor(decoded.profile)[match]);
+    return decide(decoded, page, scores2, match, -1, options);
+  }
   const scores = scoresFor(decoded, page, options);
   const [best, second] = topTwo(scores);
   return decide(decoded, page, scores, best, second, options);

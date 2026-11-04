@@ -1,17 +1,27 @@
 class NeighborIndex {
   grid = /* @__PURE__ */ new Map();
+  occupied = [];
   constructor(sources) {
     for (const source of sources) {
-      const key = `${Math.floor(source.centerX / GRID_CELL)},${Math.floor(source.centerY / GRID_CELL)}`;
+      const cellX = Math.floor(source.centerX / GRID_CELL);
+      const cellY = Math.floor(source.centerY / GRID_CELL);
+      const key = `${cellX},${cellY}`;
       const bucket = this.grid.get(key);
       if (bucket) {
         bucket.push(source);
       } else {
-        this.grid.set(key, [source]);
+        const fresh = [source];
+        this.grid.set(key, fresh);
+        this.occupied.push({
+          cellX,
+          cellY,
+          sources: fresh
+        });
       }
     }
   }
-  // Text of sources whose center lies in the rect grown by `margin`, nearest first.
+  // Text of sources whose center lies in the rect grown by `margin`, nearest first. Large regions scan
+  // the occupied cells instead of every covered cell; ties keep the grid order.
   textAround(element, rect, margin) {
     const left = rect.x - margin;
     const top = rect.y - margin;
@@ -19,22 +29,39 @@ class NeighborIndex {
     const bottom = rect.y + rect.height + margin;
     const centerX = rect.x + rect.width / 2;
     const centerY = rect.y + rect.height / 2;
+    const firstX = Math.floor(left / GRID_CELL);
+    const lastX = Math.floor(right / GRID_CELL);
+    const firstY = Math.floor(top / GRID_CELL);
+    const lastY = Math.floor(bottom / GRID_CELL);
     const hits = [];
-    for (let cellX = Math.floor(left / GRID_CELL); cellX <= Math.floor(right / GRID_CELL); cellX++) {
-      for (let cellY = Math.floor(top / GRID_CELL); cellY <= Math.floor(bottom / GRID_CELL); cellY++) {
-        for (const source of this.grid.get(`${cellX},${cellY}`) ?? []) {
-          if (source.centerX < left || source.centerX > right || source.centerY < top || source.centerY > bottom) {
-            continue;
-          }
-          if (source.element === element || element.contains(source.element)) continue;
-          hits.push({
-            distance: Math.hypot(source.centerX - centerX, source.centerY - centerY),
-            text: source.text
-          });
+    const collect = (cellX, cellY, sources) => {
+      sources.forEach((source, order) => {
+        if (source.centerX < left || source.centerX > right || source.centerY < top || source.centerY > bottom) return;
+        if (source.element === element || element.contains(source.element)) return;
+        hits.push({
+          distance: Math.hypot(source.centerX - centerX, source.centerY - centerY),
+          text: source.text,
+          cellX,
+          cellY,
+          order
+        });
+      });
+    };
+    if ((lastX - firstX + 1) * (lastY - firstY + 1) <= this.occupied.length) {
+      for (let cellX = firstX; cellX <= lastX; cellX++) {
+        for (let cellY = firstY; cellY <= lastY; cellY++) {
+          collect(cellX, cellY, this.grid.get(`${cellX},${cellY}`) ?? []);
         }
       }
+    } else {
+      for (const cell of this.occupied) {
+        if (cell.cellX < firstX || cell.cellX > lastX || cell.cellY < firstY || cell.cellY > lastY) continue;
+        collect(cell.cellX, cell.cellY, cell.sources);
+      }
     }
-    hits.sort((first, second) => first.distance - second.distance);
+    hits.sort(
+      (first, second) => first.distance - second.distance || first.cellX - second.cellX || first.cellY - second.cellY || first.order - second.order
+    );
     return truncate(hits.map((hit) => hit.text).join(" "));
   }
 }
@@ -42,19 +69,15 @@ class PathCache {
   steps = /* @__PURE__ */ new WeakMap();
   absolutePaths = /* @__PURE__ */ new WeakMap();
   idPaths = /* @__PURE__ */ new WeakMap();
-  // Absolute XPath, e.g. /html/body/div[2]/a (same result as `absoluteXPath`).
   absolute(element) {
     return this.extend(element, this.absolutePaths, () => null);
   }
-  // XPath from the nearest element with an id (same result as `idXPath`).
   id(element) {
     return this.extend(element, this.idPaths, (current) => {
       const id = current.getAttribute("id");
       return id ? `//*[@id="${id}"]` : null;
     });
   }
-  // Path of `element`: the cached path of the nearest memoized or anchored ancestor, extended by one
-  // step per level. Iterative, so deep documents cannot overflow the stack.
   extend(element, memo, anchor) {
     const chain = [];
     let base = "";
@@ -87,12 +110,12 @@ class PathCache {
       this.steps.set(element, tag);
       return tag;
     }
-    const counts = /* @__PURE__ */ new Map();
     const children = Array.from(parent.children);
+    const counts = /* @__PURE__ */ new Map();
+    const seen = /* @__PURE__ */ new Map();
     for (const child of children) {
       counts.set(child.tagName, (counts.get(child.tagName) ?? 0) + 1);
     }
-    const seen = /* @__PURE__ */ new Map();
     for (const child of children) {
       const position = (seen.get(child.tagName) ?? 0) + 1;
       const tag = child.tagName.toLowerCase();

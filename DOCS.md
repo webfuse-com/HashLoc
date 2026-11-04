@@ -1,6 +1,6 @@
 # HashLoc API
 
-`HashLoc` is a typed JavaScript library that encodes web elements into short, stateless codes and resolves them on later versions of a web page.
+`HashLoc` is a typed JavaScript library for encoding web elements into short-code locators, and UI-change-tolerant loclisation based on these locators.
 
 ## Installation
 
@@ -100,11 +100,12 @@ function resolve(
 | :-| :- | :- |
 | `code` | Code to resolve. | `string` |
 | `options.tau` | Auto-accept threshold on the calibrated confidence. | `[0, 1]`; default: the profile's (`0.9`) |
-| `options.floor` | Raw score below which the result is `not_found`. | `[0, 1]`; default: the profile's (`0.35`) |
+| `options.floor` | Raw score below which the result is `unconfident`. | `[0, 1]`; default: the profile's (`0.35`) |
 | `options.topK` | Candidates returned for review. | `N`; default `5` |
 | `options.registry` | Registry that maps the code's version to a profile. | `ProfileRegistry`; default `defaultRegistry` |
 | `options.lookup` | `"scan"` scores every element; `"buckets"` scores only elements that share an LSH bucket (a band of MinHash slots) with the code, without falling back to a scan. | `"scan"`, `"buckets"`; default `"scan"` |
 | `options.bandSize` | Bucket lookup: MinHash slots per band; smaller bands make bigger buckets (more candidates, fewer misses). | `N`; default `2` |
+| `options.idShortcut` | Take the only element whose ID segment equals the code's without scoring the page; falls back to `lookup` if the code has no ID, or none or several elements match. Profiles M and L. | `boolean`; default `false` |
 | `options.document`, `options.page` | Document to scan (default: the global `document`), or an existing index. | `Document`, `PageIndex` |
 
 #### Return Value
@@ -125,13 +126,13 @@ type ResolveResult = {
 
 | Property | Description |
 | :-| :- |
-| `status` | `accepted`: confidence ≥ `tau`; `ambiguous`: review the shortlist; `not_found`: score below `floor`. |
-| `element` | The chosen element if accepted, else `null`. |
+| `status` | `confident`: confidence ≥ `tau`; `ambiguous`: review the shortlist; `unconfident`: score below `floor`, or no candidate. |
+| `element` | The chosen element if confident, else `null`. |
 | `index` | Index of the best candidate in the page index (`-1` if none). |
 | `confidence` | Calibrated probability that the best candidate is the encoded element. |
 | `score`, `margin` | Best raw score, and its lead over the runner-up. |
 | `candidates` | Top-n candidates, best first. |
-| `scored` | Elements scored: the whole page for a scan, the bucket matches for bucket lookup. |
+| `scored` | Elements scored: the whole page for a scan, the bucket matches for bucket lookup, `1` for an ID shortcut. |
 
 ### `resolveAll()`
 
@@ -140,6 +141,8 @@ Resolve several codes on one document jointly: a one-to-one assignment ensures n
 ``` ts
 function resolveAll(codes: string[], options?: ResolveAllOptions & DomOptions & { document?: Document; page?: PageIndex; }): ResolveResult[]
 ```
+
+> `idShortcut` does not apply: the joint assignment always scores every code's candidates.
 
 ### `PageIndex`
 
@@ -230,8 +233,6 @@ evaluate(test, profile);   // accuracy, coverage, precision, silent errors, reca
 | `pairTerms()` | Concentration terms of one code–candidate pair: effective MinHash slots K and the bias of hash collisions and bucket quantisation. |
 | `topOneErrorBound()` | Upper bound on the probability that a code ranks a different element first than uncompressed scoring does (Hoeffding per candidate, union over competitors). |
 
-> The required code length grows with log N / margin²: pages with many candidates and look-alike elements need longer codes.
-
 ## DOM Utilities
 
 ``` ts
@@ -269,7 +270,7 @@ import type { ElementFeatures, Profile, ResolveResult } from "hashloc";
 
 ## Limitations
 
-- **Default calibrator**: a hand-set heuristic, conservative on large changes; fit a calibrator and threshold before relying on `accepted` unattended.
+- **Default calibrator**: a hand-set heuristic, conservative on large changes; fit a calibrator and threshold before relying on `confident` results unattended.
 - **Version gaps**: codes are compared with the original capture and never refreshed, so accuracy falls as the gap grows.
 - **Icons**: elements without text or labels are hard to tell apart, as in Similo.
 - **Layout (Node.js)**: geometry comes from `getBoundingClientRect()`; in non-rendering environments (jsdom), pass `rectOf`.
