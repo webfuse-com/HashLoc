@@ -90,7 +90,7 @@ class NeighborIndex {
 			sources.forEach((source: TextSource, order: number) => {
 				if(source.centerX < left || source.centerX > right || source.centerY < top || source.centerY > bottom) return;
 
-				if(source.element === element || element.contains(source.element)) return;
+				if(source.element === element || call<boolean>(element, "contains", source.element)) return;
 
 				hits.push({
 					distance: Math.hypot(source.centerX - centerX, source.centerY - centerY),
@@ -136,7 +136,7 @@ class PathCache {
 
 	id(element: Element): string {
 		return this.extend(element, this.idPaths, (current: Element) => {
-			const id: string | null = current.getAttribute("id");
+			const id: string | null = attributeOf(current, "id");
 
 			return id ? `//*[@id="${id}"]` : null;
 		});
@@ -146,7 +146,7 @@ class PathCache {
 		const chain: Element[] = [];
 		let base: string = "";
 
-		for(let current: Element | null = element; current; current = current.parentElement) {
+		for(let current: Element | null = element; current; current = parentOf(current)) {
 			const known: string | undefined = memo.get(current);
 
 			if(known !== undefined) {
@@ -178,33 +178,33 @@ class PathCache {
 
 		if(cached !== undefined) return cached;
 
-		const parent: Element | null = element.parentElement;
+		const parent: Element | null = parentOf(element);
 
 		if(!parent) {
-			const tag: string = element.tagName.toLowerCase();
+			const tag: string = tagOf(element);
 
 			this.steps.set(element, tag);
 
 			return tag;
 		}
 
-		const children: Element[] = Array.from(parent.children);
+		const children: Element[] = childrenOf(parent);
 		const counts: Map<string, number> = new Map<string, number>();
 		const seen: Map<string, number> = new Map<string, number>();
 
 		for(const child of children) {
-			counts.set(child.tagName, (counts.get(child.tagName) ?? 0) + 1);
+			counts.set(rawTag(child), (counts.get(rawTag(child)) ?? 0) + 1);
 		}
 
 		for(const child of children) {
-			const position: number = (seen.get(child.tagName) ?? 0) + 1;
-			const tag: string = child.tagName.toLowerCase();
+			const position: number = (seen.get(rawTag(child)) ?? 0) + 1;
+			const tag: string = tagOf(child);
 
-			seen.set(child.tagName, position);
-			this.steps.set(child, (counts.get(child.tagName) ?? 0) > 1 ? `${tag}[${position}]` : tag);
+			seen.set(rawTag(child), position);
+			this.steps.set(child, (counts.get(rawTag(child)) ?? 0) > 1 ? `${tag}[${position}]` : tag);
 		}
 
-		return this.steps.get(element) ?? element.tagName.toLowerCase();
+		return this.steps.get(element) ?? tagOf(element);
 	}
 }
 
@@ -221,19 +221,19 @@ export class DomScan {
 	private readonly paths: PathCache = new PathCache();
 
 	constructor(document: Document, options: DomOptions = {}) {
-		const root: Element | ShadowRoot = options.root ?? document.body ?? document.documentElement;
-		const view: Window | null = document.defaultView;
+		const root: Element | ShadowRoot = options.root ?? native<HTMLElement | null>(document, "body") ?? native<HTMLElement>(document, "documentElement");
+		const view: Window | null = native<Window | null>(document, "defaultView");
 
 		this.rectOf = options.rectOf ?? defaultRect;
 		this.margin = options.neighborMargin ?? 60;
 		this.contextLevels = options.contextLevels ?? 0;
-		this.pageWidth = options.pageWidth ?? Math.max(document.documentElement.scrollWidth || 0, view?.innerWidth || 0, 1);
+		this.pageWidth = options.pageWidth ?? Math.max(native<number>(native<HTMLElement>(document, "documentElement"), "scrollWidth") || 0, view?.innerWidth || 0, 1);
 		this.viewportHeight = options.viewportHeight ?? Math.max(view?.innerHeight || 0, 1);
 
 		const sources: TextSource[] = [];
 
-		for(const element of Array.from(root.querySelectorAll("*"))) {
-			if(SKIP_TAGS.has(element.tagName.toLowerCase())) continue;
+		for(const element of Array.from(call<NodeListOf<Element>>(root, "querySelectorAll", "*"))) {
+			if(SKIP_TAGS.has(tagOf(element))) continue;
 
 			if(options.filter && !options.filter(element)) continue;
 
@@ -270,7 +270,7 @@ export class DomScan {
 		const box: Rect | null = rect === undefined ? this.rectOf(element) : rect;
 		const attributes: Record<string, string> = {};
 
-		for(const attribute of Array.from(element.attributes)) {
+		for(const attribute of Array.from(native<NamedNodeMap>(element, "attributes"))) {
 			attributes[attribute.name] = truncate(attribute.value, 100);
 		}
 
@@ -286,20 +286,20 @@ export class DomScan {
 		} : null;
 
 		const features: ElementFeatures = {
-			tag: element.tagName.toLowerCase(),
-			classes: Array.from(element.classList),
-			name: element.getAttribute("name") ?? "",
-			id: element.getAttribute("id") ?? "",
-			href: element.getAttribute("href") ?? "",
-			alt: element.getAttribute("alt") ?? "",
+			tag: tagOf(element),
+			classes: Array.from(native<DOMTokenList>(element, "classList")),
+			name: attributeOf(element, "name") ?? "",
+			id: attributeOf(element, "id") ?? "",
+			href: attributeOf(element, "href") ?? "",
+			alt: attributeOf(element, "alt") ?? "",
 			xpath: "",
 			idXpath: "",
 			isButton: isButton(element),
 			geom: geom,
 			text: text,
 			neighborText: truncate(context ? `${spatial} ${context}` : spatial),
-			type: element.getAttribute("type") ?? "",
-			ariaLabel: element.getAttribute("aria-label") ?? "",
+			type: attributeOf(element, "type") ?? "",
+			ariaLabel: attributeOf(element, "aria-label") ?? "",
 			attributes: attributes
 		};
 
@@ -316,14 +316,14 @@ export class DomScan {
 
 	// Text of the nearest ancestor (within `contextLevels`) that contains text beyond the element's own.
 	private blockContext(element: Element, own: string): string {
-		let ancestor: Element | null = element.parentElement;
+		let ancestor: Element | null = parentOf(element);
 
-		for(let level: number = 0; level < this.contextLevels && ancestor && ancestor.tagName.toLowerCase() !== "body"; level++) {
+		for(let level: number = 0; level < this.contextLevels && ancestor && tagOf(ancestor) !== "body"; level++) {
 			const text: string = visibleText(ancestor);
 
 			if(text.length > own.length + 3) return truncate(own ? text.split(own).join(" ") : text, 200);
 
-			ancestor = ancestor.parentElement;
+			ancestor = parentOf(ancestor);
 		}
 
 		return "";
@@ -366,9 +366,67 @@ const MAX_TEXT: number = 300;
 const GRID_CELL: number = 256;
 
 
+const DESCRIPTORS: WeakMap<object, Map<string, PropertyDescriptor | null>> = new WeakMap<object, Map<string, PropertyDescriptor | null>>();
+
+
+// DOM members are read from the prototype chain: a form's named controls (e.g. <input name="tagName">)
+// shadow members on the form itself, but not on its prototypes.
+function native<T>(target: object, key: string): T {
+	const prototype: object | null = Object.getPrototypeOf(target) as object | null;
+
+	if(!prototype) return undefined as T;
+
+	let byKey: Map<string, PropertyDescriptor | null> | undefined = DESCRIPTORS.get(prototype);
+
+	if(!byKey) {
+		byKey = new Map<string, PropertyDescriptor | null>();
+		DESCRIPTORS.set(prototype, byKey);
+	}
+
+	if(!byKey.has(key)) {
+		let found: PropertyDescriptor | null = null;
+
+		for(let current: object | null = prototype; current && !found; current = Object.getPrototypeOf(current) as object | null) {
+			found = Object.getOwnPropertyDescriptor(current, key) ?? null;
+		}
+
+		byKey.set(key, found);
+	}
+
+	const descriptor: PropertyDescriptor | null = byKey.get(key) ?? null;
+
+	if(!descriptor) return undefined as T;
+
+	return (descriptor.get ? descriptor.get.call(target) : descriptor.value) as T;
+}
+
+function call<T>(target: object, key: string, ...args: unknown[]): T {
+	return native<(...args: unknown[]) => T>(target, key).call(target, ...args);
+}
+
+function rawTag(element: Element): string {
+	return native<string>(element, "tagName");
+}
+
+function tagOf(element: Element): string {
+	return rawTag(element).toLowerCase();
+}
+
+function attributeOf(element: Element, name: string): string | null {
+	return call<string | null>(element, "getAttribute", name);
+}
+
+function parentOf(element: Element): Element | null {
+	return native<Element | null>(element, "parentElement");
+}
+
+function childrenOf(element: Element): Element[] {
+	return Array.from(native<HTMLCollection>(element, "children"));
+}
+
 function defaultRect(element: Element): Rect | null {
-	const bounds: DOMRect = element.getBoundingClientRect();
-	const view: Window | null = element.ownerDocument.defaultView;
+	const bounds: DOMRect = call<DOMRect>(element, "getBoundingClientRect");
+	const view: Window | null = native<Window | null>(documentOf(element), "defaultView");
 
 	return {
 		x: bounds.left + (view?.scrollX ?? 0),
@@ -381,7 +439,7 @@ function defaultRect(element: Element): Rect | null {
 function isVisible(element: Element, rect: Rect | null): boolean {
 	if(!rect || rect.width <= 0 || rect.height <= 0) return false;
 
-	const style: CSSStyleDeclaration | undefined = element.ownerDocument.defaultView?.getComputedStyle(element);
+	const style: CSSStyleDeclaration | undefined = native<Window | null>(documentOf(element), "defaultView")?.getComputedStyle(element);
 
 	return !(style && (style.display === "none" || style.visibility === "hidden" || style.opacity === "0"));
 }
@@ -413,12 +471,12 @@ function lazy(target: ElementFeatures, key: "xpath" | "idXpath", compute: () => 
 }
 
 function xpathStep(element: Element): string {
-	const tag: string = element.tagName.toLowerCase();
-	const parent: Element | null = element.parentElement;
+	const tag: string = tagOf(element);
+	const parent: Element | null = parentOf(element);
 
 	if(!parent) return tag;
 
-	const sameTag: Element[] = Array.from(parent.children).filter((child: Element) => child.tagName === element.tagName);
+	const sameTag: Element[] = childrenOf(parent).filter((child: Element) => rawTag(child) === rawTag(element));
 
 	return sameTag.length > 1 ? `${tag}[${sameTag.indexOf(element) + 1}]` : tag;
 }
@@ -426,8 +484,8 @@ function xpathStep(element: Element): string {
 function ownText(element: Element): string {
 	let text: string = "";
 
-	for(const node of Array.from(element.childNodes)) {
-		if(node.nodeType === 3) {
+	for(const node of Array.from(native<NodeListOf<ChildNode>>(element, "childNodes"))) {
+		if(native<number>(node, "nodeType") === 3) {
 			text += " " + (node.nodeValue ?? "");
 		}
 	}
@@ -436,34 +494,39 @@ function ownText(element: Element): string {
 }
 
 
+// The element's document, read so that named form controls cannot shadow it.
+export function documentOf(element: Element): Document {
+	return native<Document>(element, "ownerDocument");
+}
+
 // Visible text as Similo defines it: value of button-like inputs, placeholder, alt, or inner text.
 export function visibleText(element: Element): string {
-	const tag: string = element.tagName.toLowerCase();
+	const tag: string = tagOf(element);
 
 	if(tag === "input") {
-		const type: string = (element.getAttribute("type") ?? "text").toLowerCase();
+		const type: string = (attributeOf(element, "type") ?? "text").toLowerCase();
 
 		if(BUTTONISH_INPUTS.has(type)) {
-			return truncate((element as HTMLInputElement).value || element.getAttribute("value") || "");
+			return truncate(native<string>(element, "value") || attributeOf(element, "value") || "");
 		}
 
-		return truncate(element.getAttribute("placeholder") ?? "");
+		return truncate(attributeOf(element, "placeholder") ?? "");
 	}
 
-	if(tag === "textarea") return truncate(element.getAttribute("placeholder") ?? "");
+	if(tag === "textarea") return truncate(attributeOf(element, "placeholder") ?? "");
 
-	if(tag === "img") return truncate(element.getAttribute("alt") ?? "");
+	if(tag === "img") return truncate(attributeOf(element, "alt") ?? "");
 
-	const inner: string | undefined = (element as HTMLElement).innerText;
+	const inner: string | undefined = native<string | undefined>(element, "innerText");
 
-	return truncate(typeof inner === "string" ? inner : (element.textContent ?? ""));
+	return truncate(typeof inner === "string" ? inner : (native<string | null>(element, "textContent") ?? ""));
 }
 
 // Absolute XPath, e.g. /html/body/div[2]/a.
 export function absoluteXPath(element: Element): string {
 	const steps: string[] = [];
 
-	for(let current: Element | null = element; current; current = current.parentElement) {
+	for(let current: Element | null = element; current; current = parentOf(current)) {
 		steps.unshift(xpathStep(current));
 	}
 
@@ -474,8 +537,8 @@ export function absoluteXPath(element: Element): string {
 export function idXPath(element: Element): string {
 	const steps: string[] = [];
 
-	for(let current: Element | null = element; current; current = current.parentElement) {
-		const id: string | null = current.getAttribute("id");
+	for(let current: Element | null = element; current; current = parentOf(current)) {
+		const id: string | null = attributeOf(current, "id");
 
 		if(id) {
 			steps.unshift(`*[@id="${id}"]`);
@@ -491,15 +554,15 @@ export function idXPath(element: Element): string {
 
 // Similo's "Is Button": a button tag, an a tag with "btn" in its class, or a button-like input.
 export function isButton(element: Element): boolean {
-	const tag: string = element.tagName.toLowerCase();
+	const tag: string = tagOf(element);
 
 	if(tag === "button") return true;
 
 	if(tag === "a") {
-		return Array.from(element.classList).some((className: string) => className.toLowerCase().indexOf("btn") >= 0);
+		return Array.from(native<DOMTokenList>(element, "classList")).some((className: string) => className.toLowerCase().indexOf("btn") >= 0);
 	}
 
-	if(tag === "input") return BUTTONISH_INPUTS.has((element.getAttribute("type") ?? "").toLowerCase());
+	if(tag === "input") return BUTTONISH_INPUTS.has((attributeOf(element, "type") ?? "").toLowerCase());
 
 	return false;
 }

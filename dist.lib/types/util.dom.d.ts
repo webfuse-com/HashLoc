@@ -1,7 +1,7 @@
 import { type ElementFeatures, type Rect } from "./types.js";
 export interface DomOptions {
-    /** Subtree to index (default: document.body). */
-    root?: Element;
+    /** Subtree or shadow root to index (default: document.body). */
+    root?: Element | ShadowRoot;
     /** Layout override, e.g. for tests or non-rendering environments. Must return document coordinates. */
     rectOf?: (element: Element) => Rect | null;
     /** Keep elements without a visible box (default false). */
@@ -35,6 +35,7 @@ export declare class DomScan {
     allFeatures(): ElementFeatures[];
     private blockContext;
 }
+export declare function documentOf(element: Element): Document;
 export declare function visibleText(element: Element): string;
 export declare function absoluteXPath(element: Element): string;
 export declare function idXPath(element: Element): string;

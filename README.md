@@ -4,7 +4,7 @@
   <img src="./.github/sketching-example.png" alt="Example of sketching (top) on an element fingerprint (bottom)" width="500">
 </p>
 
-**HashLoc** is a stateless web element locator represenation compatible with [Similo](https://arxiv.org/abs/2208.00677) localisation.
+**HashLoc** is a web element locator short-code and UI-change-tolerant localisaion technique based on [Similo](https://arxiv.org/abs/2208.00677).
 
 ##
 

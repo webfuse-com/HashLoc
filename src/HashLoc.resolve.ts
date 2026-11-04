@@ -1,5 +1,5 @@
 import type { ElementFeatures, Profile, SegmentSpec, SegmentValues } from "./types.js";
-import { type DomOptions, DomScan } from "./util.dom.js";
+import { documentOf, type DomOptions, DomScan } from "./util.dom.js";
 import { type DecodedCode, decodeCode, encodeFeatures, segmentValues } from "./HashLoc.js";
 import { hungarian } from "./Hungarian.js";
 import { defaultRegistry, ProfileRegistry } from "./ProfileRegistry.js";
@@ -397,7 +397,7 @@ export function resolveAllIn(codes: string[], page: PageIndex, options: ResolveA
 // Encode a live DOM element into a short code.
 export function encode(element: Element, options: EncodeOptions = {}): string {
 	const registry: ProfileRegistry = options.registry ?? defaultRegistry;
-	const page: PageIndex = options.page ?? PageIndex.fromDocument(element.ownerDocument, options);
+	const page: PageIndex = options.page ?? PageIndex.fromDocument(documentOf(element), options);
 
 	return encodeFeatures(page.featuresOf(element), pickProfile(options.profile, registry));
 }

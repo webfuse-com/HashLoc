@@ -214,3 +214,29 @@ test("Short-circuit on a unique ID and fall back otherwise", () => {
 
     assert.notDeepEqual(reused.status, "confident", "Invalid status (reused ID resolved confidently)");
 });
+
+test("Encode and resolve beside a form whose controls shadow DOM members", () => {
+    const names = [ "tagName", "getAttribute", "parentElement", "children", "attributes", "classList", "contains", "childNodes", "textContent", "innerText", "ownerDocument", "nodeType" ];
+    const version = page(`<main><button id="signup" data-xywh="10,10,120,36">Sign up</button><form data-xywh="10,100,400,300">${names.map((name, i) => `<input name="${name}" placeholder="${name}" data-xywh="20,${110 + i * 20},200,18">`).join("")}</form></main>`);
+    const form = version.document.querySelector("form");
+    const controls = names.map(name => form.querySelector(`input[name="${name}"]`));
+
+    // Browsers expose named controls as properties of the form; jsdom does not, so mimic it.
+    names.forEach((name, i) => Object.defineProperty(form, name, {
+        value: controls[i],
+        configurable: true
+    }));
+
+    for(const selector of [ "#signup", "input[name=\"tagName\"]" ]) {
+        const index = PageIndex.fromDocument(version.document, version.options);
+        const target = version.document.querySelector(selector);
+        const result = resolve(encode(target, {
+            page: index,
+            profile: PROFILE_L
+        }), {
+            page: index
+        });
+
+        assert.equal(result.element, target, `Invalid relocation beside a clobbering form (${selector})`);
+    }
+});

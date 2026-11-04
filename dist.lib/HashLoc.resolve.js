@@ -1,4 +1,4 @@
-import { DomScan } from "./util.dom.js";
+import { documentOf, DomScan } from "./util.dom.js";
 import { decodeCode, encodeFeatures, segmentValues } from "./HashLoc.js";
 import { hungarian } from "./Hungarian.js";
 import { defaultRegistry } from "./ProfileRegistry.js";
@@ -227,7 +227,7 @@ function resolveAllIn(codes, page, options = {}) {
 }
 function encode(element, options = {}) {
   const registry = options.registry ?? defaultRegistry;
-  const page = options.page ?? PageIndex.fromDocument(element.ownerDocument, options);
+  const page = options.page ?? PageIndex.fromDocument(documentOf(element), options);
   return encodeFeatures(page.featuresOf(element), pickProfile(options.profile, registry));
 }
 function resolve(code, options = {}) {
