@@ -314,7 +314,7 @@ function topTwo(scores: number[]): [ number, number ] {
 function pickProfile(profile: Profile | string | undefined, registry: ProfileRegistry): Profile {
 	if(profile && typeof profile !== "string") return profile;
 
-	const found: Profile | undefined = registry.byName(profile ?? "M");
+	const found: Profile | undefined = registry.byName(profile ?? "L");
 
 	if(!found) {
 		throw new Error(`unknown profile '${profile}'`);

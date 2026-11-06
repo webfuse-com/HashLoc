@@ -1508,7 +1508,7 @@
   }
   function pickProfile(profile, registry) {
     if (profile && typeof profile !== "string") return profile;
-    const found = registry.byName(profile ?? "M");
+    const found = registry.byName(profile ?? "L");
     if (!found) {
       throw new Error(`unknown profile '${profile}'`);
     }

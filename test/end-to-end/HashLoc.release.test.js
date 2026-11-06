@@ -16,7 +16,7 @@ import {
 import { page, V1, V2 } from "../test.util.js";
 
 
-const PROFILES = [ PROFILE_S, PROFILE_M, PROFILE_L ];
+const PROFILES = [ PROFILE_S, PROFILE_M, PROFILE_L, null ];
 const VERSION_1 = page(V1);
 const VERSION_2 = page(V2);
 const INDEX_1 = PageIndex.fromDocument(VERSION_1.document, VERSION_1.options);
@@ -50,9 +50,9 @@ test("Relocate on the same page (distinct elements resolved confidently)", () =>
                 page: INDEX_1
             });
 
-            assert.equal(result.candidates[0].element, onVersion1(selector), `Invalid top-1 (${profile.name}, ${selector})`);
+            assert.equal(result.candidates[0].element, onVersion1(selector), `Invalid top-1 (${profile?.name ?? "default"}, ${selector})`);
             !LOOKALIKES.includes(selector)
-                && assert.deepEqual(result.status, "confident", `Invalid status (${profile.name}, ${selector})`);
+                && assert.deepEqual(result.status, "confident", `Invalid status (${profile?.name ?? "default"}, ${selector})`);
         }
     }
 });
@@ -93,7 +93,7 @@ test("Relocate across the release (top-1, all profiles)", () => {
             }).candidates[0]?.element === onVersion2(after);
         }).length;
 
-        assert.ok(hits > CASES.length - 2, `Invalid relocation count (${profile.name}: ${hits}/${CASES.length})`);
+        assert.ok(hits > CASES.length - 2, `Invalid relocation count (${profile?.name ?? "default"}: ${hits}/${CASES.length})`);
     }
 });
 

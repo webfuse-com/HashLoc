@@ -45,9 +45,7 @@ export function finalizeSegments(segments: SegmentSpec[]): SegmentSpec[] {
 
 export function segmentBits(segment: SegmentSpec): number {
 	if(segment.kind === "minhash") return segment.slots * segment.bitsPerSlot;
-
 	if(segment.kind === "sketch") return 1 + segment.values * segment.bitsPerValue;
-
 	if(segment.kind === "bool") return 2;
 
 	return segment.bits;
